@@ -1,0 +1,49 @@
+/* GENERAL PAGE RULES */
+
+body {
+    font-family: "Century Gothic", CenturyGothic, Geneva, AppleGothic, sans-serif;
+    font-size: 1em;
+    line-height: 1.5;
+}
+
+h1 {
+    font-size: 2em;
+}
+
+#holder {
+    margin-top: 25px;
+    margin-bottom: 25px;
+    display: flex;
+}
+
+#left {
+    flex-grow: 100;
+    min-width: 1em;
+    max-width: 4em;
+}
+
+#middle {
+    max-width: 31em;
+}
+
+#right {
+    min-width: 1em;
+    flex-grow: 100;
+}
+
+ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+li {
+    margin-bottom: 0.25em;
+}
+
+a {
+    color: #660000;
+}
+
+a:hover {
+    color: #400000;
+}
