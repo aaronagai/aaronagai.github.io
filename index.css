@@ -6,7 +6,7 @@
 
 body {
     margin: 0;
-    padding: 72px 48px 96px;
+    padding: 72px 32px 96px;
     font-family: -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
     font-size: 15px;
     line-height: 1.65;
@@ -16,7 +16,8 @@ body {
 }
 
 main {
-    max-width: 560px;
+    max-width: 600px;
+    margin: 0 auto;
 }
 
 h1 {
