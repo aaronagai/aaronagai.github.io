@@ -46,12 +46,16 @@ h2 {
 
 a {
     color: inherit;
-    text-decoration: none;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: #bbb;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
 }
 
 a:hover {
-    text-decoration: underline;
-    text-underline-offset: 2px;
+    text-decoration-style: solid;
+    text-decoration-color: #111;
 }
 
 .list {
