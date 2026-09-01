@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Kesemua 99 DUN dan 1,141 daerah mengundi yang dicadangkan bagi Negeri Sarawak, dengan bilangan pemilih. Daripada Notis Syor SPR, Kajian Semula Persempadanan 2026.">
+<meta name="description" content="SarawakSeats — kesemua 99 DUN dan 1,141 daerah mengundi yang dicadangkan bagi Negeri Sarawak, dengan bilangan pemilih. Daripada Notis Syor SPR, Kajian Semula Persempadanan 2026.">
 <meta name="robots" content="index, follow">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Syor Persempadanan Sarawak 2026">
+<meta property="og:site_name" content="SarawakSeats">
+<meta property="og:title" content="SarawakSeats">
 <meta property="og:description" content="Cari daerah mengundi anda: 99 DUN, 1,141 daerah mengundi, 2,037,648 pemilih. Data daripada Notis Syor SPR.">
 <meta property="og:url" content="https://aaronagai.com/sarawak/">
 <meta name="twitter:card" content="summary">
@@ -17,7 +18,7 @@ body{margin:0}
 img{max-width:100%}
 [hidden]{display:none !important}
 </style>
-<title>Syor Persempadanan Sarawak</title>
+<title>SarawakSeats</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap">
@@ -68,9 +69,14 @@ body{
 
 /* ---------- masthead ---------- */
 .mast{padding:44px 0 0; display:flex; flex-direction:column; gap:14px}
-.eyebrow{
-  margin:0; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
-  letter-spacing:.13em; text-transform:uppercase; color:var(--accent); font-weight:500;
+.brand{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 11px}
+.bname{
+  font-family:Newsreader,Georgia,serif; font-size:18px; font-weight:600;
+  letter-spacing:-.012em; color:var(--accent);
+}
+.bnote{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:10.5px;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
 }
 h1{
   margin:0; font-family:Newsreader,Georgia,serif; font-weight:500;
@@ -245,7 +251,7 @@ footer .src{max-width:70ch}
 <body>
 <div class="wrap">
   <header class="mast">
-    <p class="eyebrow">Kajian Semula Persempadanan 2026 &middot; Paparan tidak rasmi bagi data SPR</p>
+    <div class="brand"><span class="bname">SarawakSeats</span><span class="bnote">Kajian Semula Persempadanan 2026 &middot; Paparan tidak rasmi bagi data SPR</span></div>
     <h1>Syor Persempadanan Sarawak</h1>
     <p class="lede">Kesemua 99 bahagian pilihan raya negeri (DUN) yang dicadangkan bagi Negeri Sarawak, dengan setiap daerah mengundi dan bilangan pemilihnya. Cari nama kampung, taman atau DUN anda di bawah.</p>
     <div class="notice">
@@ -283,7 +289,7 @@ footer .src{max-width:70ch}
   <footer>
     <p class="src"><strong>Sumber:</strong> Notis Syor Untuk Pameran Kali Pertama (Jadual Kedua), Suruhanjaya Pilihan Raya Malaysia &mdash; notis di bawah Seksyen 4 Bahagian II Jadual Ketiga Belas kepada Perlembagaan Persekutuan, Fasal (2) Perkara 113. Bilangan pemilih berdasarkan Daftar Pemilih yang diwartakan pada 29 Januari 2026 [P.U. (B) 35/2026].</p>
     <p>Angka di halaman ini disemak terhadap jumlah kecil setiap DUN dan setiap parlimen dalam notis asal, serta jumlah keseluruhan 2,037,648 pemilih. <a href="https://myst.spr.gov.my/pameran-syor" target="_blank" rel="noopener">Portal rasmi pameran syor SPR</a></p>
-    <p>Halaman tidak rasmi &mdash; untuk memudahkan pembacaan sahaja. Rujuk dokumen SPR untuk tujuan rasmi.</p>
+    <p><strong>SarawakSeats</strong> &mdash; halaman tidak rasmi, untuk memudahkan pembacaan sahaja. Rujuk dokumen SPR untuk tujuan rasmi.</p>
   </footer>
 </div>
 
