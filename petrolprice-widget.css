@@ -32,7 +32,7 @@
   background: #171717;
   color: #fff;
   border-radius: 28px;
-  padding: 18px 16px 10px;
+  padding: 16px 14px 4px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.55);
@@ -46,7 +46,7 @@
 }
 
 .pp-widget.is-detail {
-  padding: 10px 10px 6px;
+  padding: 8px 6px 10px;
 }
 
 .pp-widget.is-detail:not(.is-morphing) .pp-tabs,
@@ -60,7 +60,7 @@
   left: 0;
   right: 0;
   top: 0;
-  padding: 18px 16px 10px;
+  padding: 16px 14px 4px;
   box-sizing: border-box;
   opacity: 0;
   visibility: hidden;
@@ -74,7 +74,7 @@
   left: 0;
   right: 0;
   top: 0;
-  padding: 10px 10px 6px;
+  padding: 8px 6px 10px;
   box-sizing: border-box;
   opacity: 0;
   visibility: hidden;
@@ -98,10 +98,18 @@
   display: none !important;
 }
 
-.pp-widget.is-detail .pp-detail-stage {
-  display: block;
+.pp-widget.is-detail .pp-detail-stage,
+.pp-widget.is-detail .app-home-detail-sheet,
+.pp-widget.is-detail .app-home-detail-sheet-panel,
+.pp-widget.is-detail .app-home-detail-body,
+.pp-widget.is-detail .app-home-detail-scroll,
+.pp-widget.is-detail .sheet-cards-stack,
+.pp-widget.is-detail .card {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  height: 100%;
 }
 
 .pp-flip-layer {
@@ -476,18 +484,18 @@
   max-height: none;
   animation: none;
   transform: none;
-  border-radius: 20px;
+  border-radius: 0;
   border: none;
-  background: var(--surface);
+  background: transparent;
   box-shadow: none;
   overflow: visible;
-  padding-bottom: 22px;
+  padding-bottom: 0;
 }
 
 .pp-detail-stage .app-home-detail-sheet-close {
   position: absolute;
-  top: 10px;
-  right: 12px;
+  top: 16px;
+  right: 8px;
   z-index: 12;
   width: 36px;
   height: 36px;
@@ -514,19 +522,24 @@
 
 .pp-detail-stage .app-home-detail-scroll {
   overflow: visible;
-  margin: 0 8px 0;
-  padding: 0 4px 14px 12px;
+  margin: 0;
+  padding: 0;
+}
+
+.pp-detail-stage .app-home-detail-chart-head,
+.pp-detail-stage .app-home-detail-chart-footer {
+  flex: 0 0 auto;
 }
 
 .pp-detail-stage .app-home-detail-chart-head {
-  padding: 8px 14px 4px;
-  --ppx-dsh-flag-size: 28px;
+  padding: 16px 48px 0 10px;
+  --ppx-dsh-flag-size: 32px;
 }
 
 .pp-detail-stage .app-home-detail-chart-title-row {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -538,12 +551,12 @@
 }
 
 .pp-detail-stage .app-home-detail-chart-title {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
   color: var(--text);
-  padding-inline-end: 48px;
+  padding-inline-end: 0;
 }
 
 .pp-detail-stage .app-home-detail-chart-sub {
@@ -573,8 +586,8 @@
 }
 
 .pp-detail-stage .app-home-detail-chart-metric {
-  margin-top: 10px;
-  margin-bottom: 18px;
+  margin-top: 14px;
+  margin-bottom: 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -604,20 +617,50 @@
 .pp-detail-stage .app-home-detail-chart-delta.is-down { color: var(--pct-down); }
 
 .pp-detail-stage .chart-wrap {
-  height: 300px;
-  padding: 4px 0 18px;
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 180px;
+  padding: 4px 6px 2px;
   position: relative;
+  touch-action: none;
 }
 
 .pp-detail-stage .chart-wrap canvas {
   width: 100% !important;
   height: 100% !important;
   display: block;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.pp-detail-stage .chart-wrap.is-chart-scrubbing {
+  touch-action: none;
+}
+
+.pp-detail-stage .app-home-detail-chart-xfollow {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  min-height: 1.1em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
   pointer-events: none;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  z-index: 3;
+}
+
+.pp-detail-stage .app-home-detail-chart-xfollow.is-on {
+  opacity: 1;
 }
 
 .pp-detail-stage .app-home-detail-chart-footer {
-  padding: 10px 14px 12px;
+  padding: 4px 8px 2px;
   display: flex;
   flex-direction: column;
   align-items: center;

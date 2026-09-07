@@ -260,26 +260,28 @@
   }
 
   function applyFixedWidgetHeight() {
-    if (!widget || !detailStage || widget.dataset.fixedH) return;
-    var wasList = widget.classList.contains('is-list');
-    var wasHidden = detailStage.hidden;
-    var note = document.getElementById('pp-home-detail-forecast-note');
-    var noteWasHidden = note ? note.hidden : false;
-    var listH = widget.offsetHeight;
-    detailStage.hidden = false;
-    detailStage.style.display = '';
-    widget.classList.remove('is-list');
-    widget.classList.add('is-detail');
-    if (note) note.hidden = false;
-    var detailH = widget.offsetHeight;
-    if (note) note.hidden = noteWasHidden;
-    widget.classList.toggle('is-list', wasList);
-    widget.classList.toggle('is-detail', !wasList);
-    detailStage.hidden = wasHidden;
-    if (wasHidden) detailStage.style.display = '';
-    var fixed = Math.ceil(Math.max(listH, detailH, 1));
-    widget.style.height = fixed + 'px';
-    widget.dataset.fixedH = '1';
+    if (!widget || widget.dataset.fixedH) return;
+    var wasDetail = widget.classList.contains('is-detail');
+    var wasHidden = detailStage ? detailStage.hidden : true;
+    if (wasDetail) {
+      widget.classList.remove('is-detail');
+      widget.classList.add('is-list');
+      if (detailStage) detailStage.hidden = true;
+    }
+    widget.style.height = '';
+    var listH = Math.ceil(widget.offsetHeight);
+    if (wasDetail) {
+      widget.classList.remove('is-list');
+      widget.classList.add('is-detail');
+      if (detailStage) {
+        detailStage.hidden = wasHidden;
+        if (!wasHidden) detailStage.style.display = '';
+      }
+    }
+    if (listH > 0) {
+      widget.style.height = listH + 'px';
+      widget.dataset.fixedH = '1';
+    }
   }
 
   function detailParts() {
@@ -629,11 +631,8 @@
   window.addEventListener('resize', function () {
     var active = document.querySelector('.pp-tab[aria-selected="true"]') || tabs[0];
     movePill(active, false);
-    if (widget.dataset.fixedH) {
-      delete widget.dataset.fixedH;
-      widget.style.height = '';
-      applyFixedWidgetHeight();
-    }
+    delete widget.dataset.fixedH;
+    applyFixedWidgetHeight();
   });
 
   selectTab('petrol', false);
@@ -653,7 +652,9 @@
   var flagEl = sheet.querySelector('.app-home-flag');
   var closeBtn = sheet.querySelector('.app-home-detail-sheet-close');
 
-  var STROKE = '#dc2626';
+  var STROKE_UP = '#f87171';
+  var STROKE_DOWN = '#4ade80';
+  var STROKE_FLAT = '#9ca3af';
   var FC_STROKE = '#8c8c8c';
   var range = '1y';
   var forecastVisible = false;
@@ -678,45 +679,79 @@
     return Number.isFinite(n) ? n : null;
   }
 
-  function isoSeed(iso) {
-    var s = String(iso || '');
-    var acc = 0;
-    for (var i = 0; i < s.length; i++) acc = (acc * 33 + s.charCodeAt(i)) % 997;
-    return (acc % 7) - 3;
+  var lastPriceText = '';
+  var priceTemplate = '3.37 SGD';
+  var priceDecimals = 2;
+  var plotLayout = { padL: 4, padT: 14, padB: 24, plotW: 100, plotH: 100, gutter: 96, cssW: 0, cssH: 0 };
+  var scrubIndex = null;
+  var scrubCursorX = null;
+  var scrubActive = false;
+  var scrubPointerId = null;
+  var scrubPointerType = null;
+  var scrubRaf = 0;
+  var scrubPendingEv = null;
+  var lastMousePt = null;
+  var hoverOrigin = null;
+  var lastHapticAt = 0;
+  var xFollowEl = sheet.querySelector('.app-home-detail-chart-xfollow');
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  function mulberry32(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a |= 0;
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function hashStr(s) {
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
   }
 
   function buildSeries(basePrice, pct, iso) {
     var p = Number.isFinite(basePrice) ? basePrice : 3;
-    var resolvedPct = Number.isFinite(pct) ? pct : (isoSeed(iso) * 1.15);
+    var net = Number.isFinite(pct) ? pct / 100 : 0;
+    var counts = { '1w': 14, '1m': 16, '1y': 22, '5y': 20 };
+    var spanDays = { '1w': 7, '1m': 30, '1y': 365, '5y': 365 * 5 };
+    var volMul = { '1w': 0.018, '1m': 0.028, '1y': 0.048, '5y': 0.07 };
     var byRange = {};
-
-    function stepped(points, start) {
-      var out = [];
-      var level = start;
-      for (var i = 0; i < points.length; i++) {
-        level = level + (points[i] * p);
-        out.push(level);
-        out.push(level);
+    var keys = ['1w', '1m', '1y', '5y'];
+    var now = Date.now();
+    for (var k = 0; k < keys.length; k++) {
+      var key = keys[k];
+      var n = counts[key];
+      var rng = mulberry32(hashStr(String(iso) + ':' + key + ':' + p.toFixed(4)));
+      var first = p * (1 - net);
+      if (!(first > 0.02)) first = Math.max(0.05, p * 0.84);
+      var vol = Math.max(p * volMul[key], key === '1w' ? p * 0.008 : p * 0.01);
+      var w1 = 0.55 + rng() * 0.25;
+      var w2 = 1.15 + rng() * 0.35;
+      var ph = rng() * Math.PI * 2;
+      var ph2 = rng() * Math.PI * 2;
+      var values = [];
+      var dates = [];
+      var spanMs = spanDays[key] * 86400000;
+      for (var i = 0; i < n; i++) {
+        var t = n === 1 ? 1 : i / (n - 1);
+        var drift = first + (p - first) * t;
+        var wave =
+          Math.sin(t * Math.PI * 2 * w1 + ph) * vol * 1.15 +
+          Math.sin(t * Math.PI * 2 * w2 + ph2) * vol * 0.5;
+        var v = drift + wave;
+        if (i === 0) v = first;
+        if (i === n - 1) v = p;
+        values.push(Math.max(0.04, Number(v.toFixed(5))));
+        dates.push(new Date(now - spanMs * (1 - t)));
       }
-      return out;
-    }
-
-    var weekMove = (resolvedPct / 100) * 0.32;
-    var monthMove = (resolvedPct / 100) * 0.58;
-    var yearMove = resolvedPct / 100;
-    var fiveMove = (resolvedPct / 100) * 2.4;
-
-    byRange['1w'] = stepped([weekMove * 0.2, weekMove * 0.3, weekMove * 0.5], p * (1 - weekMove));
-    byRange['1m'] = stepped([monthMove * 0.18, monthMove * 0.24, monthMove * 0.21, monthMove * 0.37], p * (1 - monthMove));
-    byRange['1y'] = stepped([yearMove * 0.08, yearMove * 0.09, yearMove * 0.12, yearMove * 0.1, yearMove * 0.13, yearMove * 0.14, yearMove * 0.16, yearMove * 0.18], p * (1 - yearMove));
-    byRange['5y'] = stepped([fiveMove * 0.09, fiveMove * 0.11, fiveMove * 0.12, fiveMove * 0.14, fiveMove * 0.12, fiveMove * 0.13, fiveMove * 0.15, fiveMove * 0.14], p * (1 - fiveMove));
-
-    for (var key in byRange) {
-      if (!byRange[key] || !byRange[key].length) continue;
-      byRange[key][byRange[key].length - 1] = p;
-      byRange[key] = byRange[key].map(function (v) {
-        return Math.max(0.05, Number(v.toFixed(4)));
-      });
+      byRange[key] = { values: values, dates: dates };
     }
     return byRange;
   }
@@ -733,6 +768,21 @@
       text: arrow + ' ' + Math.abs(diff).toFixed(2) + ' (' + (diff >= 0 ? '+' : '−') + Math.abs(pct).toFixed(2) + '%)',
       cls: cls
     };
+  }
+
+  function strokeForDelta(cls) {
+    if (cls === 'is-up') return STROKE_UP;
+    if (cls === 'is-down') return STROKE_DOWN;
+    return STROKE_FLAT;
+  }
+
+  function withAlpha(hex, a) {
+    var h = String(hex || '').replace('#', '');
+    if (h.length !== 6) return 'rgba(156,163,175,' + a + ')';
+    var r = parseInt(h.slice(0, 2), 16);
+    var g = parseInt(h.slice(2, 4), 16);
+    var b = parseInt(h.slice(4, 6), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
   }
 
   function fallbackRow() {
@@ -762,7 +812,13 @@
     activeIso = nextIso;
     if (titleEl) titleEl.textContent = row.name || nextIso;
     if (subEl) subEl.textContent = row.sub || '';
-    if (priceEl) priceEl.textContent = row.price || '—';
+    if (priceEl) {
+      priceTemplate = row.price || '—';
+      var decMatch = String(priceTemplate).match(/\.(\d+)/);
+      priceDecimals = decMatch ? decMatch[1].length : (Math.abs(numberFromPriceText(priceTemplate) || 1) < 1 ? 4 : 2);
+      lastPriceText = '';
+      applyPrice(priceTemplate, false);
+    }
     if (flagEl) {
       var fiIso = flagIso(nextIso);
       flagEl.className = fiIso ? ('app-home-flag fi fi-' + fiIso.toLowerCase()) : 'app-home-flag';
@@ -770,17 +826,86 @@
     var basePrice = numberFromPriceText(row.price);
     activeSeries = buildSeries(basePrice, row.pct, nextIso);
     activeDeltas = {
-      '1w': deltaFor(activeSeries['1w']),
-      '1m': deltaFor(activeSeries['1m']),
-      '1y': deltaFor(activeSeries['1y']),
-      '5y': deltaFor(activeSeries['5y'])
+      '1w': deltaFor(activeSeries['1w'].values),
+      '1m': deltaFor(activeSeries['1m'].values),
+      '1y': deltaFor(activeSeries['1y'].values),
+      '5y': deltaFor(activeSeries['5y'].values)
     };
+    endScrub(true);
     setRange(range, true);
   }
 
+  function histPack() {
+    if (!activeSeries) return null;
+    return activeSeries[range] || activeSeries['1y'] || null;
+  }
+
   function histValues() {
-    if (!activeSeries) return [];
-    return activeSeries[range] || activeSeries['1y'] || [];
+    var pack = histPack();
+    return pack && pack.values ? pack.values : [];
+  }
+
+  function histDates() {
+    var pack = histPack();
+    return pack && pack.dates ? pack.dates : [];
+  }
+
+  function formatPrice(n) {
+    var t = String(priceTemplate || '');
+    var m = t.match(/^([^\d-]*)(-?\d[\d,]*(?:\.\d+)?)(.*)$/);
+    var body = Number(n).toFixed(priceDecimals);
+    if (!m) return body;
+    return m[1] + body + m[3];
+  }
+
+  function applyPrice(text, scrubbing) {
+    if (!priceEl) return;
+    var next = String(text || '—');
+    if (next === lastPriceText) return;
+    var prev = lastPriceText || '';
+    lastPriceText = next;
+    priceEl.classList.add('t-digit-group');
+    if (scrubbing && typeof window.ppxRenderDigitSpans === 'function' && prev) {
+      priceEl.classList.add('is-animating');
+      window.ppxRenderDigitSpans(priceEl, prev, next, {
+        scrubbing: true,
+        durationMs: 160
+      });
+    } else {
+      priceEl.textContent = next;
+    }
+  }
+
+  function applyDelta(values, index) {
+    if (!deltaEl) return;
+    var i = index == null ? values.length - 1 : index;
+    var slice = values.slice(0, i + 1);
+    var delta = deltaFor(slice.length >= 2 ? [values[0], values[i]] : slice);
+    deltaEl.textContent = delta.text;
+    deltaEl.className = 'app-home-detail-chart-delta ' + delta.cls;
+  }
+
+  function fmtFollowDate(d) {
+    if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+    if (range === '5y') return String(d.getFullYear());
+    if (range === '1y') return MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+    return d.getDate() + ' ' + MONTHS[d.getMonth()];
+  }
+
+  function setXFollow(xPx, text) {
+    if (!xFollowEl) return;
+    if (!text) {
+      xFollowEl.textContent = '';
+      xFollowEl.classList.remove('is-on');
+      return;
+    }
+    xFollowEl.textContent = text;
+    xFollowEl.classList.add('is-on');
+    var minX = plotLayout.padL + 10;
+    var maxX = plotLayout.padL + plotLayout.plotW - 10;
+    var xc = Math.max(minX, Math.min(maxX, xPx));
+    xFollowEl.style.left = xc + 'px';
+    xFollowEl.style.transform = 'translateX(-50%)';
   }
 
   function forecastValues(hist) {
@@ -830,16 +955,25 @@
     var gutter = 96;
     var padT = 14;
     var padB = 24;
-    var padL = 4;
+    var padL = 8;
     var plotW = Math.max(8, cssW - gutter - padL);
     var plotH = Math.max(8, cssH - padT - padB);
+    plotLayout.padL = padL;
+    plotLayout.padT = padT;
+    plotLayout.padB = padB;
+    plotLayout.plotW = plotW;
+    plotLayout.plotH = plotH;
+    plotLayout.gutter = gutter;
+    plotLayout.cssW = cssW;
+    plotLayout.cssH = cssH;
+
     var n = values.length;
-    var extent = values.concat(fc);
+    var extent = values.concat(forecastVisible ? fc : []);
     var min = Math.min.apply(null, extent);
     var max = Math.max.apply(null, extent);
     var span = max - min || 0.08;
-    min -= span * 0.08;
-    max += span * 0.12;
+    min -= span * 0.1;
+    max += span * 0.14;
     span = max - min;
 
     function xAt(i) {
@@ -850,36 +984,98 @@
       return padT + plotH * (1 - (v - min) / span);
     }
 
-    ctx.beginPath();
-    ctx.moveTo(xAt(0), yAt(values[0]));
-    for (var i = 1; i < n; i++) {
-      ctx.lineTo(xAt(i), yAt(values[i - 1]));
-      ctx.lineTo(xAt(i), yAt(values[i]));
+    function ptAt(i) {
+      var j = Math.max(0, Math.min(n - 1, i));
+      return { x: xAt(j), y: yAt(values[j]) };
     }
-    ctx.lineTo(xAt(n - 1), padT + plotH);
-    ctx.lineTo(padL, padT + plotH);
-    ctx.closePath();
-    var fill = ctx.createLinearGradient(0, padT, 0, padT + plotH);
-    fill.addColorStop(0, 'rgba(220, 38, 38, 0.35)');
-    fill.addColorStop(1, 'rgba(220, 38, 38, 0)');
-    ctx.fillStyle = fill;
-    ctx.fill();
 
-    ctx.beginPath();
-    ctx.moveTo(xAt(0), yAt(values[0]));
-    for (var j = 1; j < n; j++) {
-      ctx.lineTo(xAt(j), yAt(values[j - 1]));
-      ctx.lineTo(xAt(j), yAt(values[j]));
+    function traceCurve(fromI, toI, closeDown) {
+      var a = Math.max(0, fromI);
+      var b = Math.min(n - 1, toI);
+      if (b < a) return;
+      ctx.beginPath();
+      var start = ptAt(a);
+      ctx.moveTo(start.x, start.y);
+      if (b === a + 1) {
+        var only = ptAt(b);
+        ctx.lineTo(only.x, only.y);
+      } else if (b > a) {
+        for (var i = a + 1; i < b; i++) {
+          var p = ptAt(i);
+          var n1 = ptAt(i + 1);
+          ctx.quadraticCurveTo(p.x, p.y, (p.x + n1.x) / 2, (p.y + n1.y) / 2);
+        }
+        var last = ptAt(b);
+        var prev = ptAt(b - 1);
+        ctx.quadraticCurveTo(prev.x, prev.y, last.x, last.y);
+      }
+      if (closeDown) {
+        ctx.lineTo(xAt(b), padT + plotH);
+        ctx.lineTo(xAt(a), padT + plotH);
+        ctx.closePath();
+      }
     }
-    ctx.strokeStyle = STROKE;
-    ctx.lineWidth = 2;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.stroke();
+
+    var splitI = scrubIndex != null ? scrubIndex : n - 1;
+    var splitX = scrubCursorX != null ? scrubCursorX : xAt(splitI);
+    var hovering = scrubIndex != null;
+    var colorEnd = hovering ? splitI : n - 1;
+    var stroke = strokeForDelta(deltaFor([values[0], values[colorEnd]]).cls);
+
+    var grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+    grad.addColorStop(0, hovering ? withAlpha(stroke, 0.22) : withAlpha(stroke, 0.35));
+    grad.addColorStop(1, withAlpha(stroke, 0));
+
+    if (hovering) {
+      traceCurve(0, n - 1, true);
+      ctx.fillStyle = withAlpha(stroke, 0.08);
+      ctx.fill();
+      traceCurve(0, splitI, true);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      traceCurve(0, n - 1, false);
+      ctx.strokeStyle = withAlpha(stroke, 0.28);
+      ctx.lineWidth = 2.25;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      traceCurve(0, splitI, false);
+      ctx.strokeStyle = stroke;
+      ctx.stroke();
+    } else {
+      traceCurve(0, n - 1, true);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      traceCurve(0, n - 1, false);
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 2.25;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
 
     var lastX = xAt(n - 1);
     var lastY = yAt(values[n - 1]);
-    if (!forecastVisible) {
+
+    if (hovering) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.moveTo(splitX, padT);
+      ctx.lineTo(splitX, padT + plotH);
+      ctx.stroke();
+      ctx.restore();
+      ctx.beginPath();
+      ctx.fillStyle = stroke;
+      ctx.arc(xAt(splitI), yAt(values[splitI]), 3.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.fillStyle = '#fff';
+      ctx.arc(xAt(splitI), yAt(values[splitI]), 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (!forecastVisible) {
       ctx.save();
       ctx.beginPath();
       ctx.setLineDash([4, 4]);
@@ -891,6 +1087,8 @@
       ctx.restore();
       return;
     }
+
+    if (!forecastVisible) return;
 
     var dotR = 3.5;
     var xStart = lastX + 2;
@@ -978,21 +1176,147 @@
       cancelAnimationFrame(forecastRaf);
       forecastRaf = 0;
     }
+    endScrub(true);
     var buttons = tabs.querySelectorAll('.app-home-detail-chart-tab');
     for (var i = 0; i < buttons.length; i++) {
       var on = buttons[i].getAttribute('data-range') === range;
       buttons[i].classList.toggle('is-active', on);
       buttons[i].setAttribute('aria-selected', on ? 'true' : 'false');
     }
-    if (deltaEl) {
-      var delta = activeDeltas ? (activeDeltas[range] || activeDeltas['1y']) : null;
-      deltaEl.textContent = delta ? delta.text : '—';
-      deltaEl.className = 'app-home-detail-chart-delta ' + (delta ? delta.cls : 'is-flat');
-    }
+    applyDelta(histValues());
     syncForecastUi();
     draw();
     placePill(instantPill);
   }
+
+  function eventCanvasX(ev) {
+    var rect = canvas.getBoundingClientRect();
+    return ev.clientX - rect.left;
+  }
+
+  function indexFromX(x) {
+    var values = histValues();
+    var n = values.length;
+    if (n <= 1) return 0;
+    var t = (x - plotLayout.padL) / Math.max(1, plotLayout.plotW);
+    return Math.max(0, Math.min(n - 1, Math.round(t * (n - 1))));
+  }
+
+  function maybeHaptic() {
+    if (!scrubActive || scrubPointerType === 'mouse') return;
+    try {
+      if (typeof navigator.vibrate !== 'function') return;
+    } catch (_) {
+      return;
+    }
+    var now = Date.now();
+    if (now - lastHapticAt < 90) return;
+    lastHapticAt = now;
+    try { navigator.vibrate(8); } catch (_) {}
+  }
+
+  function applyScrubFromEvent(ev) {
+    if (!ev) return;
+    var values = histValues();
+    if (!values.length) return;
+    var x = eventCanvasX(ev);
+    var plotRight = plotLayout.padL + plotLayout.plotW;
+    if (x > plotRight + 8) x = plotRight;
+    if (x < plotLayout.padL) x = plotLayout.padL;
+    var idx = indexFromX(x);
+    var changed = scrubIndex !== idx;
+    scrubIndex = idx;
+    scrubCursorX = x;
+    if (changed) maybeHaptic();
+    applyPrice(formatPrice(values[idx]), true);
+    applyDelta(values, idx);
+    setXFollow(x, fmtFollowDate(histDates()[idx]));
+    draw();
+  }
+
+  function endScrub(silent) {
+    var wasOn = scrubIndex != null || scrubActive;
+    scrubActive = false;
+    scrubPointerId = null;
+    scrubPointerType = null;
+    scrubIndex = null;
+    scrubCursorX = null;
+    if (scrubRaf) {
+      cancelAnimationFrame(scrubRaf);
+      scrubRaf = 0;
+    }
+    try {
+      var wrap = canvas.closest('.chart-wrap');
+      if (wrap) wrap.classList.remove('is-chart-scrubbing');
+    } catch (_) {}
+    setXFollow(0, '');
+    if (!silent && wasOn) {
+      applyPrice(priceTemplate, false);
+      applyDelta(histValues());
+      draw();
+    }
+  }
+
+  function queueScrub(ev) {
+    scrubPendingEv = ev;
+    if (scrubRaf) return;
+    scrubRaf = requestAnimationFrame(function () {
+      scrubRaf = 0;
+      applyScrubFromEvent(scrubPendingEv);
+    });
+  }
+
+  window.addEventListener('pointermove', function (ev) {
+    if (ev && ev.pointerType === 'mouse') lastMousePt = { x: ev.clientX, y: ev.clientY };
+  }, { passive: true, capture: true });
+
+  canvas.addEventListener('pointerdown', function (ev) {
+    if (!ev || (ev.button != null && ev.button !== 0)) return;
+    ev.stopPropagation();
+    if (ev.pointerType !== 'mouse' && ev.cancelable) ev.preventDefault();
+    scrubActive = true;
+    scrubPointerId = ev.pointerId;
+    scrubPointerType = ev.pointerType || null;
+    var wrap = canvas.closest('.chart-wrap');
+    if (wrap) wrap.classList.add('is-chart-scrubbing');
+    try { canvas.setPointerCapture(ev.pointerId); } catch (_) {}
+    hoverOrigin = null;
+    applyScrubFromEvent(ev);
+  });
+
+  canvas.addEventListener('pointermove', function (ev) {
+    if (!scrubActive) {
+      if (ev && ev.pointerType === 'mouse') {
+        if (hoverOrigin) {
+          if (
+            Math.abs(ev.clientX - hoverOrigin.x) < 3 &&
+            Math.abs(ev.clientY - hoverOrigin.y) < 3
+          ) {
+            return;
+          }
+          hoverOrigin = null;
+        }
+        queueScrub(ev);
+      }
+      return;
+    }
+    if (scrubPointerId != null && ev.pointerId !== scrubPointerId) return;
+    queueScrub(ev);
+  });
+
+  function onScrubEnd(ev) {
+    if (!scrubActive) return;
+    if (scrubPointerId != null && ev && ev.pointerId !== scrubPointerId) return;
+    try { if (ev) canvas.releasePointerCapture(ev.pointerId); } catch (_) {}
+    endScrub(false);
+  }
+
+  canvas.addEventListener('pointerup', onScrubEnd);
+  canvas.addEventListener('pointercancel', onScrubEnd);
+  canvas.addEventListener('pointerleave', function (ev) {
+    if (scrubActive) endScrub(false);
+    else if (ev && ev.pointerType === 'mouse') endScrub(false);
+  });
 
   tabs.addEventListener('click', function (ev) {
     var btn = ev.target.closest('.app-home-detail-chart-tab');
@@ -1025,6 +1349,7 @@
   });
 
   window.addEventListener('lt:how-detail-open', function () {
+    hoverOrigin = lastMousePt ? { x: lastMousePt.x, y: lastMousePt.y } : null;
     requestAnimationFrame(function () {
       draw();
       placePill(true);
