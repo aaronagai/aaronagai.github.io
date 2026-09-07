@@ -112,8 +112,11 @@
     a.setAttribute('data-iso', item.iso);
     a.href = '#';
     var flag = document.createElement('span');
-    flag.className = 'pp-flag fi fi-' + item.iso.toLowerCase() + ' fis';
+    flag.className = 'pp-flag';
     flag.setAttribute('aria-hidden', 'true');
+    var fi = document.createElement('span');
+    fi.className = 'fi fi-' + item.iso.toLowerCase() + ' fis';
+    flag.appendChild(fi);
     var meta = document.createElement('span');
     meta.className = 'pp-meta';
     var name = document.createElement('strong');
@@ -401,7 +404,7 @@
       flag: rectOf(flag),
       name: rectOf(name),
       price: rectOf(price),
-      flagHtml: flag ? '<span class="' + String(flag.className).replace('pp-flag', '').trim() + '"></span>' : '',
+      flagHtml: flag ? flag.innerHTML : '',
       nameText: name ? name.textContent : '',
       priceText: price ? price.textContent : ''
     };
