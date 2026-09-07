@@ -22,7 +22,7 @@
     <meta name="twitter:description" content="Making beautiful things on the internet">
     <meta name="twitter:image" content="https://aaronagai.com/og-image.jpg">
 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css">
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="petrolprice-widget.css">
 </head>
@@ -43,7 +43,7 @@
                 <span class="list-title"><a href="https://petrolprice.xyz">PetrolPrice.xyz</a></span>
             </li>
         </ul>
-        <div class="pp-widget" id="pp-widget">
+        <div class="pp-widget is-list" id="pp-widget">
             <div class="pp-tabs" role="tablist" aria-label="Price lists">
                 <span class="pp-tabs-pill" aria-hidden="true"></span>
                 <button type="button" class="pp-tab" role="tab" aria-selected="true" data-tab="petrol">Petrol</button>
@@ -51,6 +51,64 @@
                 <button type="button" class="pp-tab" role="tab" aria-selected="false" data-tab="electricity">Electricity</button>
             </div>
             <div class="pp-list" id="pp-panel" role="tabpanel"></div>
+            <div class="pp-detail-stage" id="pp-detail-stage" hidden>
+                <div class="app-home-detail-sheet app-home-bottom-sheet" id="pp-home-detail-sheet" aria-hidden="true">
+                    <button type="button" class="app-home-detail-sheet-backdrop app-home-bottom-sheet-backdrop" tabindex="-1" aria-hidden="true"></button>
+                    <div class="app-home-detail-sheet-panel app-home-bottom-sheet-panel">
+                        <div class="app-home-detail-sheet-handle app-home-bottom-sheet-handle" aria-hidden="true">
+                            <span class="app-home-bottom-sheet-handle-bar"></span>
+                        </div>
+                        <div class="app-home-detail-actions"></div>
+                        <button type="button" class="app-home-detail-sheet-close app-home-bottom-sheet-close" aria-label="Back to market list">×</button>
+                        <h2 class="app-home-detail-sheet-sr-title" hidden>Market details</h2>
+                        <div class="app-home-detail-body sheet" aria-label="Market details">
+                            <div class="sheet-scroll app-home-detail-scroll">
+                                <div class="sheet-cards-stack">
+                                    <div class="card">
+                                        <div class="app-home-detail-chart-head">
+                                            <div class="app-home-detail-chart-title-row">
+                                                <span class="app-home-flag fi fi-sg" aria-hidden="true"></span>
+                                                <div class="app-home-detail-chart-title-stack">
+                                                    <div class="app-home-detail-chart-title">Singapore</div>
+                                                    <div class="app-home-detail-chart-sub">Caltex · Regular</div>
+                                                </div>
+                                            </div>
+                                            <div class="app-home-detail-chart-metric">
+                                                <div class="app-home-detail-chart-price">3.37 SGD</div>
+                                                <div class="app-home-detail-chart-delta is-flat" id="pp-home-detail-delta">→ 0.00 (+0.00%)</div>
+                                            </div>
+                                        </div>
+                                        <div class="chart-wrap">
+                                            <canvas id="pp-home-detail-chart" aria-hidden="true"></canvas>
+                                            <div class="app-home-detail-chart-xfollow" aria-hidden="true"></div>
+                                            <button type="button" class="app-home-detail-forecast-toggle" id="pp-home-detail-forecast-toggle" aria-label="Find forecasted prices">
+                                                <span class="app-home-detail-forecast-toggle-icon" aria-hidden="true">
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                        <circle cx="12" cy="12" r="10"></circle>
+                                                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                                                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                                                    </svg>
+                                                </span>
+                                                <span class="app-home-detail-forecast-toggle-label">Find forecasted prices</span>
+                                            </button>
+                                        </div>
+                                        <div class="app-home-detail-chart-footer">
+                                            <div class="app-home-detail-chart-tabs" role="tablist" aria-label="Chart timeframe" id="pp-home-detail-chart-tabs">
+                                                <span class="app-home-detail-chart-tabs-pill" aria-hidden="true"></span>
+                                                <button type="button" class="app-home-detail-chart-tab" data-range="1w" role="tab" aria-selected="false">1W</button>
+                                                <button type="button" class="app-home-detail-chart-tab" data-range="1m" role="tab" aria-selected="false">1M</button>
+                                                <button type="button" class="app-home-detail-chart-tab is-active" data-range="1y" role="tab" aria-selected="true">1Y</button>
+                                                <button type="button" class="app-home-detail-chart-tab" data-range="5y" role="tab" aria-selected="false">5Y</button>
+                                            </div>
+                                            <p class="app-home-detail-forecast-note" id="pp-home-detail-forecast-note" hidden>Dashed line: forecasted next prices — estimates from existing price data only, without considering external factors.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         <ul class="list">
             <li>
@@ -61,6 +119,7 @@
             </li>
         </ul>
     </main>
+    <script src="ppx-digit-spans.js"></script>
     <script src="petrolprice-widget.js"></script>
 </body>
 
