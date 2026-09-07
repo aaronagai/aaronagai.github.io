@@ -1,0 +1,198 @@
+.pp-widget {
+  --tabs-dur: 250ms;
+  --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --tabs-text-muted: rgba(255, 255, 255, 0.62);
+  --tabs-text-active: #171717;
+  --tabs-bar-bg: #2a2a2a;
+  --tabs-pill-bg: #ffffff;
+  margin-top: 14px;
+  background: #171717;
+  color: #fff;
+  border-radius: 28px;
+  padding: 18px 16px 10px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.pp-tabs {
+  position: relative;
+  display: flex;
+  width: 100%;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 8px;
+  border-radius: 48px;
+  background: var(--tabs-bar-bg);
+  flex: 0 0 auto;
+}
+
+.pp-tab {
+  position: relative;
+  flex: 1 1 0;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  height: 36px;
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  line-height: 1;
+  color: var(--tabs-text-muted);
+  cursor: pointer;
+  border-radius: 48px;
+  z-index: 1;
+  transition: color var(--tabs-dur) var(--tabs-ease);
+}
+
+.pp-tab:not([aria-selected="true"]):hover,
+.pp-tab[aria-selected="true"] {
+  color: var(--tabs-text-active);
+}
+
+.pp-tab:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
+.pp-tabs-pill {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  height: 36px;
+  width: 0;
+  background: var(--tabs-pill-bg);
+  border-radius: 48px;
+  transform: translateX(0);
+  transition:
+    transform var(--tabs-dur) var(--tabs-ease),
+    width var(--tabs-dur) var(--tabs-ease);
+  will-change: transform, width;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.pp-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.pp-row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 8px;
+  min-height: 64px;
+  box-sizing: border-box;
+  border-radius: 14px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.pp-row:hover {
+  background: #2a2a2a;
+}
+
+.pp-flag {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #2a2a2a;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.pp-flag .fi {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+}
+
+.pp-meta {
+  min-width: 0;
+  min-height: 36px;
+}
+
+.pp-meta strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  line-height: 1.2;
+  height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pp-meta small {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.3;
+  height: 16px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.pp-quote {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-height: 36px;
+}
+
+.pp-price {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  height: 18px;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.pp-pct {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  height: 16px;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.pp-pct.is-empty {
+  visibility: hidden;
+}
+
+.pp-pct.is-up {
+  color: #f87171;
+}
+
+.pp-pct.is-down {
+  color: #4ade80;
+}
+
+.pp-pct.is-flat {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-tabs-pill,
+  .pp-tab {
+    transition: none !important;
+  }
+}

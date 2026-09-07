@@ -22,7 +22,9 @@
     <meta name="twitter:description" content="Making beautiful things on the internet">
     <meta name="twitter:image" content="https://aaronagai.com/og-image.jpg">
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css">
     <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="petrolprice-widget.css">
 </head>
 
 <body>
@@ -37,8 +39,17 @@
 
         <h2>Projects</h2>
         <ul class="list">
-            <li>
+            <li class="list-item--widget">
                 <span class="list-title"><a href="https://petrolprice.xyz">PetrolPrice.xyz</a></span>
+                <div class="pp-widget" id="pp-widget">
+                    <div class="pp-tabs" role="tablist" aria-label="Price lists">
+                        <span class="pp-tabs-pill" aria-hidden="true"></span>
+                        <button type="button" class="pp-tab" role="tab" aria-selected="true" data-tab="petrol">Petrol</button>
+                        <button type="button" class="pp-tab" role="tab" aria-selected="false" data-tab="diesel">Diesel</button>
+                        <button type="button" class="pp-tab" role="tab" aria-selected="false" data-tab="electricity">Electricity</button>
+                    </div>
+                    <div class="pp-list" id="pp-panel" role="tabpanel"></div>
+                </div>
             </li>
             <li>
                 <span class="list-title"><a href="https://desalink.xyz">Desalink Technologies</a></span>
@@ -48,6 +59,7 @@
             </li>
         </ul>
     </main>
+    <script src="petrolprice-widget.js"></script>
 </body>
 
 </html>
