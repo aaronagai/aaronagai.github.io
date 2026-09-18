@@ -68,6 +68,12 @@ h2 {
     color: #111;
 }
 
+.product-year,
+.list-year {
+    font-weight: 400;
+    color: #999;
+}
+
 .product-sub {
     margin: 0;
     font-size: 15px;
