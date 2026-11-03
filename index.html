@@ -25,7 +25,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="index.css?v=20">
+    <link rel="stylesheet" href="index.css?v=21">
     <link rel="stylesheet" href="petrolprice-widget.css?v=17">
 </head>
 
@@ -119,10 +119,19 @@
                 </div>
             </div>
         </section>
+        <section class="product product--desalink">
+            <div class="product-split">
+                <div class="product-copy">
+                    <h2 class="product-title"><a href="https://desalink.xyz">Desalink Technologies</a> <span class="product-year">(2025)</span></h2>
+                    <p class="product-sub">Reliable, resilient Starlink internet across rural Sarawak</p>
+                </div>
+                <div class="product-visual">
+                    <div class="demo-host" id="stormDemo" role="img"
+                         aria-label="Desalink Terminal on a phone, showing one day of internet speed at Long Lama: speed dips from about 190 to 118 Mbps during heavy rain between 2 and 4 PM, the site stays online, uptime today is 100% with 0 dropouts."></div>
+                </div>
+            </div>
+        </section>
         <ul class="list">
-            <li>
-                <span class="list-title"><a href="https://desalink.xyz">Desalink Technologies</a> <span class="list-year">(2025)</span></span>
-            </li>
             <li>
                 <span class="list-title"><a href="https://sarawaktalents.com">SarawakTalents.com</a> <span class="list-year">(2025)</span></span>
             </li>
@@ -130,6 +139,26 @@
     </main>
     <script src="ppx-digit-spans.js?v=17"></script>
     <script src="petrolprice-widget.js?v=17"></script>
+    <!-- Desalink "Reliable & resilient" demo (Stageshow, built from aaronagai/desalink-xyz demos/src/storm-demo.tsx): loaded once near the viewport -->
+    <script>
+        (function () {
+            var host = document.getElementById('stormDemo');
+            if (!host) return;
+            var load = function () {
+                var css = document.createElement('link');
+                css.rel = 'stylesheet'; css.href = 'desalink-demo.css?v=1';
+                document.head.appendChild(css);
+                var js = document.createElement('script');
+                js.src = 'desalink-demo.js?v=1'; js.defer = true;
+                document.body.appendChild(js);
+            };
+            if (!('IntersectionObserver' in window)) return load();
+            var io = new IntersectionObserver(function (entries) {
+                if (entries.some(function (e) { return e.isIntersecting; })) { io.disconnect(); load(); }
+            }, { rootMargin: '600px 0px' });
+            io.observe(host);
+        })();
+    </script>
 </body>
 
 </html>

@@ -104,6 +104,25 @@ h2 {
     min-width: 0;
 }
 
+.product--desalink {
+    margin-top: 56px;
+}
+
+/* Desalink storm demo (desalink-demo.js): the box reserves the stage's
+   shape before the script loads; below a 460px column it goes compact */
+.demo-host {
+    --surface: #f3f2ef;
+    --radius: 14px;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: var(--surface);
+    border-radius: var(--radius);
+}
+
+.demo-host.is-ready {
+    background: none;
+}
+
 .product + .list {
     margin-top: 28px;
 }
@@ -147,6 +166,13 @@ a:hover {
     .product-split {
         grid-template-columns: 1fr;
         gap: 24px;
+    }
+}
+
+@media (max-width: 507px) {
+    .demo-host {
+        max-width: 342px;
+        aspect-ratio: 342 / 380;
     }
 }
 
