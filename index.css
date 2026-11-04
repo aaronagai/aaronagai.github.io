@@ -108,16 +108,14 @@ h2 {
     margin-top: 56px;
 }
 
-/* Desalink pocket terminal (desalink-demo.js): the box reserves the device's
-   shape before the script loads, and everything inside scales from its width */
+/* Desalink terminal (desalink-demo.js): the box reserves the square before the
+   script loads. Same width, corners and shadow as the PetrolPrice widget */
 .demo-host {
     container-type: inline-size;
     width: 100%;
-    max-width: 400px;
-    aspect-ratio: 26 / 32.4;
-    margin: 0 auto;
-    background: #1d1d1f;
-    border-radius: 12cqw;
+    aspect-ratio: 1 / 1;
+    background: #0b0b0c;
+    border-radius: 28px;
 }
 
 .demo-host.is-ready {

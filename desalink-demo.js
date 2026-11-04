@@ -1,4 +1,4 @@
-/* Desalink pocket terminal. One day of speed at Long Lama, data from
+/* Desalink terminal. One day of speed at Long Lama, data from
    aaronagai/desalink-xyz demos/src/storm-demo.tsx. Plain JS, no dependencies.
    Which hour shows: hover beats pinned beats the one-time attract sweep. */
 (function () {
@@ -21,14 +21,10 @@
 
     host.innerHTML =
         '<div class="dl">' +
-            '<button type="button" class="dl-side dl-side--up" data-step="1" tabindex="-1" aria-hidden="true"></button>' +
-            '<button type="button" class="dl-side dl-side--down" data-step="-1" tabindex="-1" aria-hidden="true"></button>' +
-            '<button type="button" class="dl-side dl-side--power" data-power aria-label="Sleep or wake the screen"></button>' +
             '<div class="dl-screen">' +
                 '<div class="dl-rain" aria-hidden="true"></div>' +
                 '<div class="dl-status" aria-hidden="true">' +
                     '<span>6:02</span>' +
-                    '<div class="dl-island"><span>' + svg(CLOUD) + 'Heavy rain</span><span><i></i>Online</span></div>' +
                     '<span class="dl-status-icons">' +
                         '<svg viewBox="0 0 18 12" fill="currentColor"><rect y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" width="3" height="12" rx="1"/></svg>' +
                         '<svg viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3.2" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="currentColor"/><path d="M24 4v4c.9-.3 1.5-1.1 1.5-2S24.900 4.300 24 4z" fill="currentColor" opacity=".5"/></svg>' +
@@ -44,18 +40,12 @@
                         '<div class="dl-value"><span class="dl-digits" aria-hidden="true">' + digit + digit + digit + '</span><span class="dl-unit">Mbps</span></div>' +
                     '</div>' +
                     '<div class="dl-plot" role="slider" tabindex="0" aria-label="Hour of the day" aria-valuemin="0" aria-valuemax="' + LAST + '">' +
-                        '<span class="dl-band"><button type="button" class="dl-chip" data-rain-key>' + svg(CLOUD) + 'Heavy rain</button></span>' +
+                        '<span class="dl-band"><button type="button" class="dl-chip">' + svg(CLOUD) + 'Heavy rain</button></span>' +
                         '<svg class="dl-chart" aria-hidden="true"><path class="dl-area"/><path class="dl-curve" pathLength="1"/></svg>' +
                         '<span class="dl-hair"></span><span class="dl-dot"></span><span class="dl-now"></span>' +
                     '</div>' +
                     '<div class="dl-axis" aria-hidden="true"><span>6 AM</span><span>12 PM</span><span>6 PM</span></div>' +
                 '</div>' +
-                '<button type="button" class="dl-sleep" data-power tabindex="-1" aria-hidden="true"></button>' +
-            '</div>' +
-            '<div class="dl-pad">' +
-                '<button type="button" class="dl-key" data-step="-1" aria-label="Earlier hour"><span class="dl-dome">' + svg('<path d="m15 18-6-6 6-6"/>') + '</span><span class="dl-word"><span>Earlier</span></span></button>' +
-                '<button type="button" class="dl-key" data-rain-key data-centre aria-label="Jump to the heavy rain"><span class="dl-dome">' + svg(CLOUD, ' data-when="idle"') + svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', ' data-when="pinned"') + '</span><span class="dl-word"><span data-when="idle">Rain</span><span data-when="pinned">Now</span></span></button>' +
-                '<button type="button" class="dl-key" data-step="1" aria-label="Later hour"><span class="dl-dome">' + svg('<path d="m9 18 6-6-6-6"/>') + '</span><span class="dl-word"><span>Later</span></span></button>' +
             '</div>' +
         '</div>';
 
@@ -63,11 +53,9 @@
     var $ = function (s) { return root.querySelector(s); };
     var plot = $('.dl-plot'), curve = $('.dl-curve'), area = $('.dl-area'), band = $('.dl-band');
     var hair = $('.dl-hair'), dot = $('.dl-dot'), now = $('.dl-now'), label = $('.dl-label');
-    var digits = root.querySelectorAll('.dl-digit');
-    var prev = root.querySelector('.dl-key[data-step="-1"]'), next = root.querySelector('.dl-key[data-step="1"]');
-    var centre = $('[data-centre]');
+    var digits = root.querySelectorAll('.dl-digit'), chip = $('.dl-chip');
 
-    var hover = null, pinned = null, attract = null, asleep = false;
+    var hover = null, pinned = null, attract = null;
     var pts = [], lookup = [], W = 0, H = 0;
     var curX = 0, goalX = 0, raf = 0, shownLabel = 'Now', timers = [];
 
@@ -160,22 +148,13 @@
         var at = active ? i : LAST;
         plot.setAttribute('aria-valuenow', at);
         plot.setAttribute('aria-valuetext', (active ? HOURS[i] : 'Now') + ', ' + value + ' Mbps' + (root.hasAttribute('data-rain') ? ', heavy rain, still online' : ', online'));
-        prev.setAttribute('aria-disabled', String(at === 0));
-        next.setAttribute('aria-disabled', String(!active));
-        centre.setAttribute('aria-label', pinned !== null ? 'Back to now' : 'Jump to the heavy rain');
+        chip.setAttribute('aria-pressed', String(pinned === TROUGH));
     }
 
     function stopAttract() {
         timers.forEach(clearTimeout);
         timers = [];
         if (attract !== null) { attract = null; update(); }
-    }
-
-    function wake() {
-        if (!asleep) return false;
-        asleep = false;
-        flag('data-asleep', false);
-        return true;
     }
 
     function step(by) {
@@ -185,12 +164,6 @@
         var to = at + by;
         if (to < 0) return;
         pinned = to > LAST ? null : to;
-        update();
-    }
-
-    function toggleRain() {
-        hover = null;
-        pinned = pinned === null ? TROUGH : null;
         update();
     }
 
@@ -246,7 +219,6 @@
     });
 
     // The chip sits on the chart, so it must not also scrub or pin
-    var chip = $('.dl-chip');
     ['pointerdown', 'pointerup', 'pointermove'].forEach(function (t) {
         chip.addEventListener(t, function (e) { e.stopPropagation(); });
     });
@@ -256,16 +228,10 @@
         update();
     });
 
-    root.addEventListener('click', function (e) {
-        var b = e.target.closest ? e.target.closest('button') : null;
-        if (!b) return;
-        if (b.hasAttribute('data-power')) {
-            if (!wake()) { asleep = true; flag('data-asleep', true); }
-            return;
-        }
-        if (wake()) return;
-        if (b.hasAttribute('data-rain-key')) toggleRain();
-        else if (b.hasAttribute('data-step')) step(Number(b.getAttribute('data-step')));
+    chip.addEventListener('click', function () {
+        hover = null;
+        pinned = pinned === TROUGH ? null : TROUGH;
+        update();
     });
 
     root.addEventListener('pointerenter', stopAttract);

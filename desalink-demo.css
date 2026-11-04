@@ -1,5 +1,5 @@
-/* Desalink pocket terminal: a square iPhone-style screen in a Tamagotchi body.
-   1em = 1/26 of the device width, so the whole object scales as one piece. */
+/* Desalink terminal: a square screen in an iPhone-width bezel. The bezel and
+   type scale from the host's width, so it holds up from phone to laptop. */
 .dl {
     --dl-ease: cubic-bezier(0.22, 1, 0.36, 1);
     --dl-quick: 150ms;
@@ -8,20 +8,17 @@
     --dl-muted: #6e6e73;
     --dl-line: #ececef;
     position: relative;
-    display: flex;
-    flex-direction: column;
+    --dl-bezel: 2cqw;
     width: 100%;
     height: 100%;
-    padding: 0.75em 0.75em 0;
-    font-size: calc(100cqw / 26);
+    padding: var(--dl-bezel);
+    font-size: clamp(12.5px, calc(100cqw / 30), 17px);
     line-height: 1.25;
     color: var(--dl-ink);
-    border-radius: 3.1em;
-    background: linear-gradient(150deg, #3b3b3f 0%, #1d1d1f 42%, #121213 100%);
+    border-radius: 28px;
+    background: #0b0b0c;
     box-shadow:
-        0 0 0 0.13em #7c7c81,
-        0 0 0 0.2em #2a2a2c,
-        inset 0 0.06em 0.1em rgba(255, 255, 255, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.16),
         0 18px 40px -24px rgba(0, 0, 0, 0.5);
     -webkit-user-select: none;
     user-select: none;
@@ -38,41 +35,16 @@
     cursor: pointer;
 }
 
-/* Side buttons: left steps the hour, right sleeps the screen */
-.dl-side {
-    position: absolute;
-    width: 0.34em;
-    border-radius: 0.2em;
-    background: linear-gradient(90deg, #5c5c60, #8d8d92);
-    transition: transform var(--dl-quick) var(--dl-ease);
-}
-
-.dl-side::after {
-    content: "";
-    position: absolute;
-    inset: -0.2em -0.7em;
-}
-
-.dl-side--up { left: -0.5em; top: 6.4em; height: 3em; }
-.dl-side--down { left: -0.5em; top: 10em; height: 3em; }
-.dl-side--power { right: -0.5em; top: 7.6em; height: 4.6em; background: linear-gradient(270deg, #5c5c60, #8d8d92); }
-
-.dl-side--up:active,
-.dl-side--down:active { transform: translateX(0.14em); }
-.dl-side--power:active { transform: translateX(-0.14em); }
-
 /* The square screen */
 .dl-screen {
     position: relative;
-    flex: none;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     width: 100%;
-    aspect-ratio: 1 / 1;
+    height: 100%;
     overflow: hidden;
-    border-radius: 2.4em;
+    border-radius: calc(28px - var(--dl-bezel));
     background: #fff;
-    box-shadow: 0 0 0 0.1em #000;
     isolation: isolate;
 }
 
@@ -106,45 +78,6 @@
 }
 
 .dl-status-icons svg { display: block; height: 0.8em; width: auto; }
-
-/* Dynamic Island: full size underneath, clipped down until the rain starts */
-.dl-island {
-    position: absolute;
-    top: 0.6em;
-    left: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 13em;
-    height: 1.75em;
-    margin-left: -6.5em;
-    padding: 0 0.75em;
-    font-size: 0.8em;
-    font-weight: 500;
-    white-space: nowrap;
-    color: #fff;
-    border-radius: 2em;
-    background: #000;
-    clip-path: inset(0 3.6em round 2em);
-    transition: clip-path 180ms var(--dl-ease);
-}
-
-.dl[data-rain] .dl-island {
-    clip-path: inset(0 0 round 2em);
-    transition-duration: var(--dl-fast);
-}
-
-.dl-island > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35em;
-    opacity: 0;
-    transition: opacity var(--dl-quick) var(--dl-ease);
-}
-
-.dl[data-rain] .dl-island > span { opacity: 1; }
-.dl-island svg { width: 1.1em; height: 1.1em; }
-.dl-island i { width: 0.5em; height: 0.5em; border-radius: 50%; background: #34c759; }
 
 .dl-main {
     display: grid;
@@ -422,94 +355,9 @@
     to { transform: translate3d(-64px, 256px, 0); }
 }
 
-/* Asleep: the glass goes black, any press wakes it */
-.dl-sleep {
-    position: absolute;
-    inset: 0;
-    z-index: 5;
-    width: 100%;
-    background: #000;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 160ms var(--dl-ease);
-}
-
-.dl[data-asleep] .dl-sleep {
-    opacity: 1;
-    pointer-events: auto;
-    transition-duration: var(--dl-fast);
-}
-
-/* Tamagotchi buttons */
-.dl-pad {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2.1em;
-    min-height: 0;
-    padding-bottom: 0.2em;
-}
-
-.dl-key {
-    display: grid;
-    justify-items: center;
-    gap: 0.5em;
-    width: max(44px, 3.8em);
-}
-
-.dl-dome {
-    display: grid;
-    place-items: center;
-    width: max(44px, 3.5em);
-    height: max(44px, 3.5em);
-    color: #1d1d1f;
-    border-radius: 50%;
-    background: radial-gradient(circle at 36% 28%, #fff, #e6e6ea 55%, #bdbdc3 100%);
-    box-shadow:
-        0 0.2em 0 #6d6d73,
-        0 0.42em 0.6em rgba(0, 0, 0, 0.6),
-        inset 0 -0.08em 0.14em rgba(0, 0, 0, 0.18);
-    transition: transform 120ms var(--dl-ease), box-shadow 120ms var(--dl-ease), filter var(--dl-quick) var(--dl-ease);
-}
-
-.dl-dome svg { grid-area: 1 / 1; width: 1.5em; height: 1.5em; transition: opacity var(--dl-quick) var(--dl-ease), transform var(--dl-quick) var(--dl-ease); }
-
-.dl-key:active .dl-dome {
-    transform: translateY(0.17em);
-    box-shadow:
-        0 0.03em 0 #6d6d73,
-        0 0.1em 0.2em rgba(0, 0, 0, 0.6),
-        inset 0 0.06em 0.14em rgba(0, 0, 0, 0.22);
-    transition-duration: 60ms;
-}
-
-.dl-key:focus-visible { outline: none; }
-.dl-key:focus-visible .dl-dome { outline: 2px solid #fff; outline-offset: 3px; }
-.dl-key[aria-disabled="true"] .dl-dome { filter: brightness(0.62); }
-
-.dl-word {
-    display: grid;
-    font-size: max(10px, 0.72em);
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    color: #a1a1a6;
-}
-
-.dl-word span { grid-area: 1 / 1; text-align: center; transition: opacity var(--dl-quick) var(--dl-ease); }
-
-/* Centre key morphs between Rain and Now */
-.dl-key [data-when="pinned"] { opacity: 0; transform: scale(0.7); }
-.dl[data-pinned] .dl-key [data-when="pinned"] { opacity: 1; transform: none; }
-.dl[data-pinned] .dl-key [data-when="idle"] { opacity: 0; transform: scale(0.7); }
-
 @media (hover: hover) and (pointer: fine) {
-    .dl-key:hover .dl-dome { filter: brightness(1.06); transform: translateY(-0.05em); }
-    .dl-key:active .dl-dome { transform: translateY(0.17em); }
-    .dl-key[aria-disabled="true"]:hover .dl-dome { filter: brightness(0.62); transform: none; }
     .dl-chip:hover { color: #141414; }
     .dl[data-pinned-rain] .dl-chip:hover { color: #fff; }
-    .dl-side:hover { filter: brightness(1.25); }
 }
 
 @media (prefers-reduced-motion: reduce) {
