@@ -146,10 +146,10 @@
             if (!host) return;
             var load = function () {
                 var css = document.createElement('link');
-                css.rel = 'stylesheet'; css.href = 'desalink-demo.css?v=5';
+                css.rel = 'stylesheet'; css.href = 'desalink-demo.css?v=6';
                 css.onload = css.onerror = function () {
                     var js = document.createElement('script');
-                    js.src = 'desalink-demo.js?v=5';
+                    js.src = 'desalink-demo.js?v=6';
                     document.body.appendChild(js);
                 };
                 document.head.appendChild(css);

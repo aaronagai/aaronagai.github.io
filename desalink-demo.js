@@ -25,6 +25,7 @@
                 '<div class="dl-rain" aria-hidden="true"></div>' +
                 '<div class="dl-status" aria-hidden="true">' +
                     '<span>6:02</span>' +
+                    '<div class="dl-island"><span>' + svg(CLOUD) + 'Heavy rain</span><span><i></i>Online</span></div>' +
                     '<span class="dl-status-icons">' +
                         '<svg viewBox="0 0 18 12" fill="currentColor"><rect y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" width="3" height="12" rx="1"/></svg>' +
                         '<svg viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3.2" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="currentColor"/><path d="M24 4v4c.9-.3 1.5-1.1 1.5-2S24.900 4.300 24 4z" fill="currentColor" opacity=".5"/></svg>' +
