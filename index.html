@@ -25,7 +25,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="index.css?v=21">
+    <link rel="stylesheet" href="index.css?v=22">
     <link rel="stylesheet" href="petrolprice-widget.css?v=17">
 </head>
 
@@ -126,8 +126,8 @@
                     <p class="product-sub">Reliable, resilient Starlink internet across rural Sarawak</p>
                 </div>
                 <div class="product-visual">
-                    <div class="demo-host" id="stormDemo" role="img"
-                         aria-label="Desalink Terminal on a phone, showing one day of internet speed at Long Lama: speed dips from about 190 to 118 Mbps during heavy rain between 2 and 4 PM, the site stays online, uptime today is 100% with 0 dropouts."></div>
+                    <div class="demo-host" id="stormDemo" role="group"
+                         aria-label="Desalink Terminal for Long Lama: one day of internet speed. Speed dips from about 190 to 118 Mbps in heavy rain between 2 and 4 PM, and the site stays online with 100% uptime and 0 dropouts."></div>
                 </div>
             </div>
         </section>
@@ -139,18 +139,20 @@
     </main>
     <script src="ppx-digit-spans.js?v=17"></script>
     <script src="petrolprice-widget.js?v=17"></script>
-    <!-- Desalink "Reliable & resilient" demo (Stageshow, built from aaronagai/desalink-xyz demos/src/storm-demo.tsx): loaded once near the viewport -->
+    <!-- Desalink pocket terminal: loaded once near the viewport, styles first so it never flashes unstyled -->
     <script>
         (function () {
             var host = document.getElementById('stormDemo');
             if (!host) return;
             var load = function () {
                 var css = document.createElement('link');
-                css.rel = 'stylesheet'; css.href = 'desalink-demo.css?v=1';
+                css.rel = 'stylesheet'; css.href = 'desalink-demo.css?v=4';
+                css.onload = css.onerror = function () {
+                    var js = document.createElement('script');
+                    js.src = 'desalink-demo.js?v=4';
+                    document.body.appendChild(js);
+                };
                 document.head.appendChild(css);
-                var js = document.createElement('script');
-                js.src = 'desalink-demo.js?v=1'; js.defer = true;
-                document.body.appendChild(js);
             };
             if (!('IntersectionObserver' in window)) return load();
             var io = new IntersectionObserver(function (entries) {

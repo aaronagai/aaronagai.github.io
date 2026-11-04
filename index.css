@@ -108,15 +108,16 @@ h2 {
     margin-top: 56px;
 }
 
-/* Desalink storm demo (desalink-demo.js): the box reserves the stage's
-   shape before the script loads; below a 460px column it goes compact */
+/* Desalink pocket terminal (desalink-demo.js): the box reserves the device's
+   shape before the script loads, and everything inside scales from its width */
 .demo-host {
-    --surface: #f3f2ef;
-    --radius: 14px;
+    container-type: inline-size;
     width: 100%;
-    aspect-ratio: 1 / 1;
-    background: var(--surface);
-    border-radius: var(--radius);
+    max-width: 400px;
+    aspect-ratio: 26 / 32.4;
+    margin: 0 auto;
+    background: #1d1d1f;
+    border-radius: 12cqw;
 }
 
 .demo-host.is-ready {
@@ -166,13 +167,6 @@ a:hover {
     .product-split {
         grid-template-columns: 1fr;
         gap: 24px;
-    }
-}
-
-@media (max-width: 507px) {
-    .demo-host {
-        max-width: 342px;
-        aspect-ratio: 342 / 380;
     }
 }
 
