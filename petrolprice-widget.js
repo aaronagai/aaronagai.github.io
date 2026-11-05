@@ -684,12 +684,19 @@
   var priceDecimals = 2;
   var plotLayout = { padL: 4, padT: 14, padB: 24, plotW: 100, plotH: 100, gutter: 96, cssW: 0, cssH: 0 };
   var scrubIndex = null;
-  var scrubCursorX = null;
   var scrubActive = false;
   var scrubPointerId = null;
   var scrubPointerType = null;
-  var scrubRaf = 0;
-  var scrubPendingEv = null;
+  var geo = null;
+  var curX = 0;
+  var goalX = 0;
+  var hoverT = 0;
+  var strokeNow = [156, 163, 175];
+  var strokeGoal = [156, 163, 175];
+  var glideRaf = 0;
+  var reelCols = [];
+  var reelShape = '';
+  var priceSettle = 0;
   var lastMousePt = null;
   var hoverOrigin = null;
   var lastHapticAt = 0;
@@ -776,13 +783,14 @@
     return STROKE_FLAT;
   }
 
-  function withAlpha(hex, a) {
+  function rgbOf(hex) {
     var h = String(hex || '').replace('#', '');
-    if (h.length !== 6) return 'rgba(156,163,175,' + a + ')';
-    var r = parseInt(h.slice(0, 2), 16);
-    var g = parseInt(h.slice(2, 4), 16);
-    var b = parseInt(h.slice(4, 6), 16);
-    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+    if (h.length !== 6) return [156, 163, 175];
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+
+  function rgba(c, a) {
+    return 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + a + ')';
   }
 
   function fallbackRow() {
@@ -858,22 +866,74 @@
     return m[1] + body + m[3];
   }
 
-  function applyPrice(text, scrubbing) {
-    if (!priceEl) return;
-    var next = String(text || '—');
-    if (next === lastPriceText) return;
-    var prev = lastPriceText || '';
-    lastPriceText = next;
-    priceEl.classList.add('t-digit-group');
-    if (scrubbing && typeof window.ppxRenderDigitSpans === 'function' && prev) {
-      priceEl.classList.add('is-animating');
-      window.ppxRenderDigitSpans(priceEl, prev, next, {
-        scrubbing: true,
-        durationMs: 160
-      });
-    } else {
-      priceEl.textContent = next;
+  function shapeOf(text) {
+    return text.replace(/\d/g, '0');
+  }
+
+  // One persistent 0-9 reel per digit, so a new value only moves a transform
+  // and a change mid-roll simply redirects it
+  function buildReel(text) {
+    var frag = document.createDocumentFragment();
+    reelCols = [];
+    text.split('').forEach(function (ch) {
+      if (!/\d/.test(ch)) {
+        frag.appendChild(document.createTextNode(ch));
+        return;
+      }
+      var col = document.createElement('span');
+      col.className = 'pp-reel-col';
+      col.setAttribute('aria-hidden', 'true');
+      var reel = document.createElement('span');
+      reel.className = 'pp-reel';
+      for (var d = 0; d < 10; d++) {
+        var cell = document.createElement('span');
+        cell.textContent = d;
+        reel.appendChild(cell);
+      }
+      col.appendChild(reel);
+      frag.appendChild(col);
+      reelCols.push(reel);
+    });
+    priceEl.replaceChildren(frag);
+    reelShape = shapeOf(text);
+  }
+
+  function spinReel(text) {
+    var digits = text.replace(/\D/g, '');
+    for (var i = 0; i < reelCols.length; i++) {
+      reelCols[i].style.transform = 'translateY(' + (-digits[i] * 10) + '%)';
     }
+  }
+
+  function applyPrice(text, rolling) {
+    if (!priceEl) return;
+    clearTimeout(priceSettle);
+    var next = String(text || '—');
+    var prev = lastPriceText;
+    if (next === prev) return;
+    lastPriceText = next;
+    if (!rolling || reducedMotion || !prev) {
+      reelShape = '';
+      priceEl.textContent = next;
+      return;
+    }
+    if (reelShape !== shapeOf(next)) {
+      var from = shapeOf(prev) === shapeOf(next) ? prev : next;
+      buildReel(from);
+      spinReel(from);
+      void priceEl.offsetWidth;
+    }
+    spinReel(next);
+  }
+
+  // Back to plain text once the reels have rolled home
+  function settlePrice() {
+    clearTimeout(priceSettle);
+    if (!reelShape) return;
+    priceSettle = setTimeout(function () {
+      reelShape = '';
+      priceEl.textContent = lastPriceText;
+    }, 300);
   }
 
   function applyDelta(values, index) {
@@ -881,8 +941,11 @@
     var i = index == null ? values.length - 1 : index;
     var slice = values.slice(0, i + 1);
     var delta = deltaFor(slice.length >= 2 ? [values[0], values[i]] : slice);
-    deltaEl.textContent = delta.text;
-    deltaEl.className = 'app-home-detail-chart-delta ' + delta.cls;
+    if (deltaEl.textContent !== delta.text) deltaEl.textContent = delta.text;
+    if (!deltaEl.classList.contains(delta.cls)) {
+      deltaEl.classList.remove('is-up', 'is-down', 'is-flat');
+      deltaEl.classList.add(delta.cls);
+    }
   }
 
   function fmtFollowDate(d) {
@@ -892,20 +955,22 @@
     return d.getDate() + ' ' + MONTHS[d.getMonth()];
   }
 
-  function setXFollow(xPx, text) {
+  function setFollowText(text) {
     if (!xFollowEl) return;
     if (!text) {
-      xFollowEl.textContent = '';
       xFollowEl.classList.remove('is-on');
       return;
     }
-    xFollowEl.textContent = text;
+    if (xFollowEl.textContent !== text) xFollowEl.textContent = text;
     xFollowEl.classList.add('is-on');
+  }
+
+  function placeFollow() {
+    if (!xFollowEl || !geo) return;
     var minX = plotLayout.padL + 10;
     var maxX = plotLayout.padL + plotLayout.plotW - 10;
-    var xc = Math.max(minX, Math.min(maxX, xPx));
-    xFollowEl.style.left = xc + 'px';
-    xFollowEl.style.transform = 'translateX(-50%)';
+    var xc = Math.max(minX, Math.min(maxX, curX)) + geo.left;
+    xFollowEl.style.transform = 'translateX(' + xc + 'px) translateX(-50%)';
   }
 
   function forecastValues(hist) {
@@ -937,20 +1002,22 @@
     }
   }
 
-  function draw() {
+  // Everything that only changes with the data or the size. Runs on a range,
+  // market or resize change, never per frame.
+  function layout() {
     var values = histValues();
-    if (!values.length) return;
+    if (!values.length) {
+      geo = null;
+      return;
+    }
     var fc = forecastValues(values);
-    var wrap = canvas.parentElement;
-    var cssW = wrap.clientWidth || 400;
-    var cssH = wrap.clientHeight || 300;
+    var cssW = canvas.clientWidth || 400;
+    var cssH = canvas.clientHeight || 300;
     var dpr = Math.max(1, window.devicePixelRatio || 1);
-    canvas.width = Math.round(cssW * dpr);
-    canvas.height = Math.round(cssH * dpr);
-    var ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssW, cssH);
+    var bitmapW = Math.round(cssW * dpr);
+    var bitmapH = Math.round(cssH * dpr);
+    if (canvas.width !== bitmapW) canvas.width = bitmapW;
+    if (canvas.height !== bitmapH) canvas.height = bitmapH;
 
     var gutter = 96;
     var padT = 14;
@@ -976,141 +1043,193 @@
     max += span * 0.14;
     span = max - min;
 
-    function xAt(i) {
-      if (n <= 1) return padL;
-      return padL + (plotW * i) / (n - 1);
-    }
     function yAt(v) {
       return padT + plotH * (1 - (v - min) / span);
     }
 
-    function ptAt(i) {
-      var j = Math.max(0, Math.min(n - 1, i));
-      return { x: xAt(j), y: yAt(values[j]) };
-    }
+    var pts = values.map(function (v, i) {
+      return { x: n <= 1 ? padL : padL + (plotW * i) / (n - 1), y: yAt(v) };
+    });
 
-    function traceCurve(fromI, toI, closeDown) {
-      var a = Math.max(0, fromI);
-      var b = Math.min(n - 1, toI);
-      if (b < a) return;
-      ctx.beginPath();
-      var start = ptAt(a);
-      ctx.moveTo(start.x, start.y);
-      if (b === a + 1) {
-        var only = ptAt(b);
-        ctx.lineTo(only.x, only.y);
-      } else if (b > a) {
-        for (var i = a + 1; i < b; i++) {
-          var p = ptAt(i);
-          var n1 = ptAt(i + 1);
-          ctx.quadraticCurveTo(p.x, p.y, (p.x + n1.x) / 2, (p.y + n1.y) / 2);
-        }
-        var last = ptAt(b);
-        var prev = ptAt(b - 1);
-        ctx.quadraticCurveTo(prev.x, prev.y, last.x, last.y);
-      }
-      if (closeDown) {
-        ctx.lineTo(xAt(b), padT + plotH);
-        ctx.lineTo(xAt(a), padT + plotH);
-        ctx.closePath();
+    // The line as quadratic segments, sampled too so the dot can ride it
+    var line = new Path2D();
+    var samples = [pts[0]];
+    function segment(from, ctrl, to) {
+      line.quadraticCurveTo(ctrl.x, ctrl.y, to.x, to.y);
+      for (var s = 1; s <= 12; s++) {
+        var t = s / 12;
+        var u = 1 - t;
+        samples.push({
+          x: u * u * from.x + 2 * u * t * ctrl.x + t * t * to.x,
+          y: u * u * from.y + 2 * u * t * ctrl.y + t * t * to.y
+        });
       }
     }
+    line.moveTo(pts[0].x, pts[0].y);
+    var at = pts[0];
+    for (var i = 1; i < n - 1; i++) {
+      var mid = { x: (pts[i].x + pts[i + 1].x) / 2, y: (pts[i].y + pts[i + 1].y) / 2 };
+      segment(at, pts[i], mid);
+      at = mid;
+    }
+    if (n > 1) segment(at, pts[Math.max(0, n - 2)], pts[n - 1]);
 
-    var splitI = scrubIndex != null ? scrubIndex : n - 1;
-    var splitX = scrubCursorX != null ? scrubCursorX : xAt(splitI);
-    var hovering = scrubIndex != null;
-    var colorEnd = hovering ? splitI : n - 1;
-    var stroke = strokeForDelta(deltaFor([values[0], values[colorEnd]]).cls);
+    var area = new Path2D(line);
+    area.lineTo(pts[n - 1].x, padT + plotH);
+    area.lineTo(pts[0].x, padT + plotH);
+    area.closePath();
 
-    var grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
-    grad.addColorStop(0, hovering ? withAlpha(stroke, 0.22) : withAlpha(stroke, 0.35));
-    grad.addColorStop(1, withAlpha(stroke, 0));
+    geo = {
+      cssW: cssW,
+      cssH: cssH,
+      dpr: dpr,
+      left: canvas.offsetLeft,
+      top: padT,
+      bottom: padT + plotH,
+      pts: pts,
+      fc: fc,
+      line: line,
+      area: area,
+      samples: samples,
+      yAt: yAt,
+      lastX: pts[n - 1].x,
+      lastY: pts[n - 1].y
+    };
 
-    if (hovering) {
-      traceCurve(0, n - 1, true);
-      ctx.fillStyle = withAlpha(stroke, 0.08);
-      ctx.fill();
-      traceCurve(0, splitI, true);
-      ctx.fillStyle = grad;
-      ctx.fill();
-      traceCurve(0, n - 1, false);
-      ctx.strokeStyle = withAlpha(stroke, 0.28);
-      ctx.lineWidth = 2.25;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.stroke();
-      traceCurve(0, splitI, false);
-      ctx.strokeStyle = stroke;
-      ctx.stroke();
+    if (scrubIndex == null) {
+      strokeGoal = strokeAt(n - 1);
+      if (hoverT === 0) strokeNow = strokeGoal.slice();
     } else {
-      traceCurve(0, n - 1, true);
-      ctx.fillStyle = grad;
-      ctx.fill();
-      traceCurve(0, n - 1, false);
-      ctx.strokeStyle = stroke;
-      ctx.lineWidth = 2.25;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.stroke();
+      curX = goalX = Math.min(goalX, geo.lastX);
+    }
+  }
+
+  function strokeAt(index) {
+    var values = histValues();
+    return rgbOf(strokeForDelta(deltaFor([values[0], values[index]]).cls));
+  }
+
+  function curveY(x) {
+    var list = geo.samples;
+    for (var i = 1; i < list.length; i++) {
+      if (list[i].x >= x) {
+        var a = list[i - 1];
+        var b = list[i];
+        return a.y + (b.y - a.y) * (b.x === a.x ? 0 : (x - a.x) / (b.x - a.x));
+      }
+    }
+    return list[list.length - 1].y;
+  }
+
+  // Per frame: fills and strokes from the cached paths, nothing else
+  function paint() {
+    if (!geo) return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    var g = geo;
+    var top = g.top;
+    var bottom = g.bottom;
+    var t = hoverT;
+    var splitX = t > 0 ? curX : g.cssW;
+
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.clearRect(0, 0, g.cssW, g.cssH);
+    ctx.lineWidth = 2.25;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    var grad = ctx.createLinearGradient(0, top, 0, bottom);
+    grad.addColorStop(0, rgba(strokeNow, 0.35 - 0.13 * t));
+    grad.addColorStop(1, rgba(strokeNow, 0));
+
+    if (t > 0) {
+      ctx.fillStyle = rgba(strokeNow, 0.08 * t);
+      ctx.fill(g.area);
     }
 
-    var lastX = xAt(n - 1);
-    var lastY = yAt(values[n - 1]);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, splitX, g.cssH);
+    ctx.clip();
+    ctx.fillStyle = grad;
+    ctx.fill(g.area);
+    ctx.strokeStyle = rgba(strokeNow, 1);
+    ctx.stroke(g.line);
+    ctx.restore();
 
-    if (hovering) {
+    if (t > 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(splitX, 0, g.cssW - splitX, g.cssH);
+      ctx.clip();
+      ctx.globalAlpha = 1 - t;
+      ctx.fillStyle = grad;
+      ctx.fill(g.area);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = rgba(strokeNow, 1 - 0.72 * t);
+      ctx.stroke(g.line);
+      ctx.restore();
+
       ctx.save();
       ctx.beginPath();
       ctx.setLineDash([4, 4]);
       ctx.lineWidth = 1;
-      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-      ctx.moveTo(splitX, padT);
-      ctx.lineTo(splitX, padT + plotH);
+      ctx.strokeStyle = 'rgba(255,255,255,' + 0.45 * t + ')';
+      ctx.moveTo(curX, top);
+      ctx.lineTo(curX, bottom);
       ctx.stroke();
       ctx.restore();
+
+      var dotY = curveY(curX);
+      ctx.save();
+      ctx.globalAlpha = t;
       ctx.beginPath();
-      ctx.fillStyle = stroke;
-      ctx.arc(xAt(splitI), yAt(values[splitI]), 3.6, 0, Math.PI * 2);
+      ctx.fillStyle = rgba(strokeNow, 1);
+      ctx.arc(curX, dotY, 3.6, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
       ctx.fillStyle = '#fff';
-      ctx.arc(xAt(splitI), yAt(values[splitI]), 1.6, 0, Math.PI * 2);
+      ctx.arc(curX, dotY, 1.6, 0, Math.PI * 2);
       ctx.fill();
-    } else if (!forecastVisible) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = 'rgba(128,128,128,0.35)';
-      ctx.moveTo(lastX, padT);
-      ctx.lineTo(lastX, padT + plotH);
-      ctx.stroke();
       ctx.restore();
+    }
+
+    if (!forecastVisible) {
+      if (t < 1) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(128,128,128,' + 0.35 * (1 - t) + ')';
+        ctx.moveTo(g.lastX, top);
+        ctx.lineTo(g.lastX, bottom);
+        ctx.stroke();
+        ctx.restore();
+      }
       return;
     }
 
-    if (!forecastVisible) return;
-
     var dotR = 3.5;
-    var xStart = lastX + 2;
-    var xFinal = cssW - dotR - 8;
+    var xStart = g.lastX + 2;
+    var xFinal = g.cssW - dotR - 8;
     var out = [];
-    for (var k = 0; k < fc.length; k++) {
+    for (var k = 0; k < g.fc.length; k++) {
       out.push({
-        x: xStart + ((xFinal - xStart) * (k + 1)) / fc.length,
-        y: Math.max(padT + 4, Math.min(padT + plotH - 4, yAt(fc[k])))
+        x: xStart + ((xFinal - xStart) * (k + 1)) / g.fc.length,
+        y: Math.max(top + 4, Math.min(bottom - 4, g.yAt(g.fc[k])))
       });
     }
     var clipT = Math.max(0, Math.min(1, forecastReveal));
     ctx.save();
     if (clipT < 1) {
       ctx.beginPath();
-      ctx.rect(lastX, padT, Math.max(0, (xFinal + dotR + 3 - lastX) * clipT), plotH);
+      ctx.rect(g.lastX, top, Math.max(0, (xFinal + dotR + 3 - g.lastX) * clipT), bottom - top);
       ctx.clip();
     }
     ctx.beginPath();
-    ctx.moveTo(xStart, lastY);
-    for (var bi = 0; bi < out.length; bi++) ctx.lineTo(out[bi].x, yAt(fc[bi] * 1.035));
-    for (var bj = out.length - 1; bj >= 0; bj--) ctx.lineTo(out[bj].x, yAt(fc[bj] * 0.965));
+    ctx.moveTo(xStart, g.lastY);
+    for (var bi = 0; bi < out.length; bi++) ctx.lineTo(out[bi].x, g.yAt(g.fc[bi] * 1.035));
+    for (var bj = out.length - 1; bj >= 0; bj--) ctx.lineTo(out[bj].x, g.yAt(g.fc[bj] * 0.965));
     ctx.closePath();
     ctx.fillStyle = FC_STROKE;
     ctx.globalAlpha = 0.1;
@@ -1121,12 +1240,11 @@
     ctx.lineCap = 'butt';
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = FC_STROKE;
-    ctx.moveTo(xStart, lastY);
+    ctx.moveTo(xStart, g.lastY);
     var cx = xStart;
-    var cy = lastY;
-    var prevY = n > 1 ? yAt(values[n - 2]) : lastY;
-    var prevX = n > 1 ? xAt(n - 2) : lastX;
-    var exitSlope = lastX - prevX > 0 ? (lastY - prevY) / (lastX - prevX) : 0;
+    var cy = g.lastY;
+    var prev = g.pts[g.pts.length - 2] || { x: g.lastX, y: g.lastY };
+    var exitSlope = g.lastX - prev.x > 0 ? (g.lastY - prev.y) / (g.lastX - prev.x) : 0;
     for (var s = 0; s < out.length; s++) {
       var seg = out[s];
       var dx = seg.x - cx;
@@ -1150,6 +1268,47 @@
     ctx.restore();
   }
 
+  function draw() {
+    layout();
+    paint();
+  }
+
+  // One eased chase for the cursor, the hover fade and the line colour, so a
+  // new target simply redirects whatever is already moving
+  function chase(now, goal, snap) {
+    return Math.abs(goal - now) < snap ? goal : now + (goal - now) * 0.24;
+  }
+
+  function settleGlide() {
+    curX = goalX;
+    hoverT = scrubIndex != null ? 1 : 0;
+    strokeNow = strokeGoal.slice();
+  }
+
+  function glide() {
+    glideRaf = 0;
+    curX = chase(curX, goalX, 0.4);
+    hoverT = chase(hoverT, scrubIndex != null ? 1 : 0, 0.01);
+    var still = curX === goalX && hoverT === (scrubIndex != null ? 1 : 0);
+    for (var c = 0; c < 3; c++) {
+      strokeNow[c] = chase(strokeNow[c], strokeGoal[c], 1);
+      if (strokeNow[c] !== strokeGoal[c]) still = false;
+    }
+    placeFollow();
+    paint();
+    if (!still) glideRaf = requestAnimationFrame(glide);
+  }
+
+  function kickGlide() {
+    if (reducedMotion) {
+      settleGlide();
+      placeFollow();
+      paint();
+      return;
+    }
+    if (!glideRaf) glideRaf = requestAnimationFrame(glide);
+  }
+
   function startForecastReveal() {
     if (forecastRaf) cancelAnimationFrame(forecastRaf);
     if (reducedMotion) {
@@ -1158,10 +1317,11 @@
       return;
     }
     forecastReveal = 0;
+    layout();
     var t0 = performance.now();
     function tick(now) {
       forecastReveal = Math.min(1, (now - t0) / 480);
-      draw();
+      paint();
       if (forecastReveal < 1) forecastRaf = requestAnimationFrame(tick);
       else forecastRaf = 0;
     }
@@ -1216,22 +1376,29 @@
   }
 
   function applyScrubFromEvent(ev) {
-    if (!ev) return;
+    if (!ev || !geo) return;
     var values = histValues();
     if (!values.length) return;
-    var x = eventCanvasX(ev);
     var plotRight = plotLayout.padL + plotLayout.plotW;
-    if (x > plotRight + 8) x = plotRight;
-    if (x < plotLayout.padL) x = plotLayout.padL;
+    var x = Math.max(plotLayout.padL, Math.min(plotRight, eventCanvasX(ev)));
     var idx = indexFromX(x);
     var changed = scrubIndex !== idx;
+    // Appearing from nothing: start at the target rather than sliding in
+    var appearing = scrubIndex == null && hoverT < 0.02;
     scrubIndex = idx;
-    scrubCursorX = x;
-    if (changed) maybeHaptic();
-    applyPrice(formatPrice(values[idx]), true);
-    applyDelta(values, idx);
-    setXFollow(x, fmtFollowDate(histDates()[idx]));
-    draw();
+    goalX = x;
+    if (appearing) {
+      curX = x;
+      placeFollow();
+    }
+    if (changed) {
+      maybeHaptic();
+      strokeGoal = strokeAt(idx);
+      applyPrice(formatPrice(values[idx]), true);
+      applyDelta(values, idx);
+      setFollowText(fmtFollowDate(histDates()[idx]));
+    }
+    kickGlide();
   }
 
   function endScrub(silent) {
@@ -1240,30 +1407,22 @@
     scrubPointerId = null;
     scrubPointerType = null;
     scrubIndex = null;
-    scrubCursorX = null;
-    if (scrubRaf) {
-      cancelAnimationFrame(scrubRaf);
-      scrubRaf = 0;
+    setFollowText('');
+    if (silent) {
+      if (glideRaf) {
+        cancelAnimationFrame(glideRaf);
+        glideRaf = 0;
+      }
+      hoverT = 0;
+      return;
     }
-    try {
-      var wrap = canvas.closest('.chart-wrap');
-      if (wrap) wrap.classList.remove('is-chart-scrubbing');
-    } catch (_) {}
-    setXFollow(0, '');
-    if (!silent && wasOn) {
-      applyPrice(priceTemplate, false);
+    if (wasOn) {
+      strokeGoal = strokeAt(histValues().length - 1);
+      applyPrice(priceTemplate, true);
+      settlePrice();
       applyDelta(histValues());
-      draw();
+      kickGlide();
     }
-  }
-
-  function queueScrub(ev) {
-    scrubPendingEv = ev;
-    if (scrubRaf) return;
-    scrubRaf = requestAnimationFrame(function () {
-      scrubRaf = 0;
-      applyScrubFromEvent(scrubPendingEv);
-    });
   }
 
   window.addEventListener('pointermove', function (ev) {
@@ -1277,8 +1436,6 @@
     scrubActive = true;
     scrubPointerId = ev.pointerId;
     scrubPointerType = ev.pointerType || null;
-    var wrap = canvas.closest('.chart-wrap');
-    if (wrap) wrap.classList.add('is-chart-scrubbing');
     try { canvas.setPointerCapture(ev.pointerId); } catch (_) {}
     hoverOrigin = null;
     applyScrubFromEvent(ev);
@@ -1296,12 +1453,12 @@
           }
           hoverOrigin = null;
         }
-        queueScrub(ev);
+        applyScrubFromEvent(ev);
       }
       return;
     }
     if (scrubPointerId != null && ev.pointerId !== scrubPointerId) return;
-    queueScrub(ev);
+    applyScrubFromEvent(ev);
   });
 
   function onScrubEnd(ev) {

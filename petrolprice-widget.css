@@ -605,12 +605,33 @@
   white-space: nowrap;
 }
 
+.pp-detail-stage .pp-reel-col {
+  display: inline-block;
+  height: 1.02em;
+  overflow: hidden;
+  vertical-align: top;
+}
+
+.pp-detail-stage .pp-reel {
+  display: block;
+  transition: transform var(--tabs-dur) var(--tabs-ease);
+}
+
+.pp-detail-stage .pp-reel span {
+  display: block;
+  height: 1.02em;
+}
+
 .pp-detail-stage .app-home-detail-chart-delta {
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
+}
+
+.pp-detail-stage .app-home-detail-chart-delta:not(.pp-stagger) {
+  transition: color 150ms var(--how-morph-ease);
 }
 
 .pp-detail-stage .app-home-detail-chart-delta.is-up { color: var(--pct-up); }
@@ -622,7 +643,7 @@
   min-height: 180px;
   padding: 4px 6px 2px;
   position: relative;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .pp-detail-stage .chart-wrap canvas {
@@ -630,19 +651,14 @@
   height: 100% !important;
   display: block;
   pointer-events: auto;
-  touch-action: none;
+  touch-action: pan-y;
   cursor: crosshair;
-}
-
-.pp-detail-stage .chart-wrap.is-chart-scrubbing {
-  touch-action: none;
 }
 
 .pp-detail-stage .app-home-detail-chart-xfollow {
   position: absolute;
-  left: 50%;
+  left: 0;
   bottom: 2px;
-  transform: translateX(-50%);
   min-height: 1.1em;
   font-size: 0.75rem;
   font-weight: 600;
