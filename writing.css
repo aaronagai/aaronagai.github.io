@@ -248,37 +248,10 @@ main.article {
     text-decoration: none;
 }
 
-/* Interview questions, set back from the answers */
-.prose .question {
-    padding-left: 14px;
-    border-left: 2px solid #ddd;
-    font-size: 15px;
-    line-height: 1.6;
-    color: #777;
-}
-
 /* Source credits stay readable but quieter than the point they back up */
 .src {
     font-size: 0.82em;
     color: var(--muted);
-}
-
-/* Holds no text: the redacted words are not in the page at all */
-.redacted {
-    display: block;
-    margin-top: 6px;
-}
-
-.redacted span {
-    display: block;
-    height: 1.25em;
-    margin-bottom: 4px;
-    background: var(--ink);
-}
-
-.redacted span:last-child {
-    width: 82%;
-    margin-bottom: 0;
 }
 
 @media (hover: hover) and (pointer: fine) {
