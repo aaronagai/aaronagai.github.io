@@ -2,7 +2,14 @@
 
 Personal website for Aaron Nagai, hosted on GitHub Pages.
 
-A minimal static site — just `index.html` and `index.css`.
+A minimal static site with no build step.
+
+## Writing
+
+Posts live at `writing/<slug>/index.html` and share `writing.css` and
+`writing.js`. To add one, copy the latest post's folder, edit the title, date,
+description and body, then add a row to the Writing list in the root
+`index.html`. The contents rail is built from the post's `h2`s.
 
 ## Custom domain
 
