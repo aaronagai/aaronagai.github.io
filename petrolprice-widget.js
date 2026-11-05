@@ -656,6 +656,7 @@
   var STROKE_DOWN = '#4ade80';
   var STROKE_FLAT = '#9ca3af';
   var FC_STROKE = '#8c8c8c';
+  var FC_RGB = [140, 140, 140];
   var range = '1y';
   var forecastVisible = false;
   var forecastReveal = 1;
@@ -697,6 +698,7 @@
   var reelCols = [];
   var reelShape = '';
   var priceSettle = 0;
+  var followHalf = 0;
   var lastMousePt = null;
   var hoverOrigin = null;
   var lastHapticAt = 0;
@@ -961,15 +963,16 @@
       xFollowEl.classList.remove('is-on');
       return;
     }
-    if (xFollowEl.textContent !== text) xFollowEl.textContent = text;
+    if (xFollowEl.textContent !== text) {
+      xFollowEl.textContent = text;
+      followHalf = xFollowEl.offsetWidth / 2;
+    }
     xFollowEl.classList.add('is-on');
   }
 
   function placeFollow() {
     if (!xFollowEl || !geo) return;
-    var minX = plotLayout.padL + 10;
-    var maxX = plotLayout.padL + plotLayout.plotW - 10;
-    var xc = Math.max(minX, Math.min(maxX, curX)) + geo.left;
+    var xc = Math.max(followHalf + 2, Math.min(geo.cssW - followHalf - 2, curX)) + geo.left;
     xFollowEl.style.transform = 'translateX(' + xc + 'px) translateX(-50%)';
   }
 
@@ -1074,6 +1077,55 @@
     }
     if (n > 1) segment(at, pts[Math.max(0, n - 2)], pts[n - 1]);
 
+    // The forecast is part of the same track once it is showing
+    var out = [];
+    var fcLine = null;
+    var fcBand = null;
+    if (forecastVisible) {
+      var xStart = pts[n - 1].x + 2;
+      var xFinal = cssW - 11.5;
+      fc.forEach(function (v, k) {
+        out.push({
+          x: xStart + ((xFinal - xStart) * (k + 1)) / fc.length,
+          y: Math.max(padT + 4, Math.min(padT + plotH - 4, yAt(v)))
+        });
+      });
+      fcBand = new Path2D();
+      fcBand.moveTo(xStart, pts[n - 1].y);
+      out.forEach(function (o, k) { fcBand.lineTo(o.x, yAt(fc[k] * 1.035)); });
+      for (var bj = out.length - 1; bj >= 0; bj--) fcBand.lineTo(out[bj].x, yAt(fc[bj] * 0.965));
+      fcBand.closePath();
+
+      fcLine = new Path2D();
+      fcLine.moveTo(xStart, pts[n - 1].y);
+      var cx = xStart;
+      var cy = pts[n - 1].y;
+      var prev = pts[n - 2] || pts[n - 1];
+      var exitSlope = pts[n - 1].x - prev.x > 0 ? (pts[n - 1].y - prev.y) / (pts[n - 1].x - prev.x) : 0;
+      samples.push({ x: cx, y: cy });
+      out.forEach(function (seg, k) {
+        var dx = seg.x - cx;
+        var c1x = cx + dx * 0.35;
+        var c1y = cy;
+        var c2x = seg.x - dx * 0.35;
+        if (k === 0) {
+          var maxBow = Math.max(8, Math.abs(seg.y - cy));
+          c1y = cy + Math.max(-maxBow, Math.min(maxBow, exitSlope * dx * 0.35));
+        }
+        fcLine.bezierCurveTo(c1x, c1y, c2x, seg.y, seg.x, seg.y);
+        for (var q = 1; q <= 12; q++) {
+          var t = q / 12;
+          var u = 1 - t;
+          samples.push({
+            x: u * u * u * cx + 3 * u * u * t * c1x + 3 * u * t * t * c2x + t * t * t * seg.x,
+            y: u * u * u * cy + 3 * u * u * t * c1y + 3 * u * t * t * seg.y + t * t * t * seg.y
+          });
+        }
+        cx = seg.x;
+        cy = seg.y;
+      });
+    }
+
     var area = new Path2D(line);
     area.lineTo(pts[n - 1].x, padT + plotH);
     area.lineTo(pts[0].x, padT + plotH);
@@ -1087,7 +1139,12 @@
       top: padT,
       bottom: padT + plotH,
       pts: pts,
-      fc: fc,
+      out: out,
+      stops: pts.concat(out),
+      series: forecastVisible ? values.concat(fc) : values,
+      scrubRight: out.length ? out[out.length - 1].x : padL + plotW,
+      fcLine: fcLine,
+      fcBand: fcBand,
       line: line,
       area: area,
       samples: samples,
@@ -1100,13 +1157,12 @@
       strokeGoal = strokeAt(n - 1);
       if (hoverT === 0) strokeNow = strokeGoal.slice();
     } else {
-      curX = goalX = Math.min(goalX, geo.lastX);
+      curX = goalX = Math.min(goalX, geo.scrubRight);
     }
   }
 
   function strokeAt(index) {
-    var values = histValues();
-    return rgbOf(strokeForDelta(deltaFor([values[0], values[index]]).cls));
+    return rgbOf(strokeForDelta(deltaFor([geo.series[0], geo.series[index]]).cls));
   }
 
   function curveY(x) {
@@ -1169,7 +1225,11 @@
       ctx.strokeStyle = rgba(strokeNow, 1 - 0.72 * t);
       ctx.stroke(g.line);
       ctx.restore();
+    }
 
+    if (forecastVisible) paintForecast(ctx, g, splitX, t);
+
+    if (t > 0) {
       ctx.save();
       ctx.beginPath();
       ctx.setLineDash([4, 4]);
@@ -1180,11 +1240,13 @@
       ctx.stroke();
       ctx.restore();
 
+      // The dot turns forecast grey as it crosses onto the estimate
+      var mix = Math.max(0, Math.min(1, (curX - g.lastX) / 12));
       var dotY = curveY(curX);
       ctx.save();
       ctx.globalAlpha = t;
       ctx.beginPath();
-      ctx.fillStyle = rgba(strokeNow, 1);
+      ctx.fillStyle = rgba(strokeNow.map(function (v, c) { return v + (FC_RGB[c] - v) * mix; }), 1);
       ctx.arc(curX, dotY, 3.6, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
@@ -1194,76 +1256,59 @@
       ctx.restore();
     }
 
-    if (!forecastVisible) {
-      if (t < 1) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.setLineDash([4, 4]);
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = 'rgba(128,128,128,' + 0.35 * (1 - t) + ')';
-        ctx.moveTo(g.lastX, top);
-        ctx.lineTo(g.lastX, bottom);
-        ctx.stroke();
-        ctx.restore();
-      }
-      return;
-    }
-
-    var dotR = 3.5;
-    var xStart = g.lastX + 2;
-    var xFinal = g.cssW - dotR - 8;
-    var out = [];
-    for (var k = 0; k < g.fc.length; k++) {
-      out.push({
-        x: xStart + ((xFinal - xStart) * (k + 1)) / g.fc.length,
-        y: Math.max(top + 4, Math.min(bottom - 4, g.yAt(g.fc[k])))
-      });
-    }
-    var clipT = Math.max(0, Math.min(1, forecastReveal));
-    ctx.save();
-    if (clipT < 1) {
+    if (!forecastVisible && t < 1) {
+      ctx.save();
       ctx.beginPath();
-      ctx.rect(g.lastX, top, Math.max(0, (xFinal + dotR + 3 - g.lastX) * clipT), bottom - top);
-      ctx.clip();
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(128,128,128,' + 0.35 * (1 - t) + ')';
+      ctx.moveTo(g.lastX, top);
+      ctx.lineTo(g.lastX, bottom);
+      ctx.stroke();
+      ctx.restore();
     }
-    ctx.beginPath();
-    ctx.moveTo(xStart, g.lastY);
-    for (var bi = 0; bi < out.length; bi++) ctx.lineTo(out[bi].x, g.yAt(g.fc[bi] * 1.035));
-    for (var bj = out.length - 1; bj >= 0; bj--) ctx.lineTo(out[bj].x, g.yAt(g.fc[bj] * 0.965));
-    ctx.closePath();
+  }
+
+  function strokeForecast(ctx, g, alpha) {
     ctx.fillStyle = FC_STROKE;
-    ctx.globalAlpha = 0.1;
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.beginPath();
+    ctx.globalAlpha = 0.1 * alpha;
+    ctx.fill(g.fcBand);
+    ctx.globalAlpha = alpha;
     ctx.setLineDash([4, 4]);
     ctx.lineCap = 'butt';
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = FC_STROKE;
-    ctx.moveTo(xStart, g.lastY);
-    var cx = xStart;
-    var cy = g.lastY;
-    var prev = g.pts[g.pts.length - 2] || { x: g.lastX, y: g.lastY };
-    var exitSlope = g.lastX - prev.x > 0 ? (g.lastY - prev.y) / (g.lastX - prev.x) : 0;
-    for (var s = 0; s < out.length; s++) {
-      var seg = out[s];
-      var dx = seg.x - cx;
-      var cp1y = cy;
-      if (s === 0) {
-        var maxBow = Math.max(8, Math.abs(seg.y - cy));
-        cp1y = cy + Math.max(-maxBow, Math.min(maxBow, exitSlope * dx * 0.35));
-      }
-      ctx.bezierCurveTo(cx + dx * 0.35, cp1y, seg.x - dx * 0.35, seg.y, seg.x, seg.y);
-      cx = seg.x;
-      cy = seg.y;
-    }
-    ctx.stroke();
+    ctx.stroke(g.fcLine);
     ctx.setLineDash([]);
-    for (var d = 0; d < out.length; d++) {
+    for (var d = 0; d < g.out.length; d++) {
       ctx.beginPath();
-      ctx.fillStyle = FC_STROKE;
-      ctx.arc(out[d].x, out[d].y, 3.2, 0, Math.PI * 2);
+      ctx.arc(g.out[d].x, g.out[d].y, 3.2, 0, Math.PI * 2);
       ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function paintForecast(ctx, g, splitX, t) {
+    var clipT = Math.max(0, Math.min(1, forecastReveal));
+    ctx.save();
+    if (clipT < 1) {
+      ctx.beginPath();
+      ctx.rect(g.lastX, g.top, Math.max(0, (g.cssW - g.lastX) * clipT), g.bottom - g.top);
+      ctx.clip();
+    }
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, splitX, g.cssH);
+    ctx.clip();
+    strokeForecast(ctx, g, 1);
+    ctx.restore();
+    if (t > 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(splitX, 0, g.cssW - splitX, g.cssH);
+      ctx.clip();
+      strokeForecast(ctx, g, 1 - 0.6 * t);
+      ctx.restore();
     }
     ctx.restore();
   }
@@ -1355,11 +1400,20 @@
   }
 
   function indexFromX(x) {
-    var values = histValues();
-    var n = values.length;
-    if (n <= 1) return 0;
-    var t = (x - plotLayout.padL) / Math.max(1, plotLayout.plotW);
-    return Math.max(0, Math.min(n - 1, Math.round(t * (n - 1))));
+    var stops = geo.stops;
+    var near = 0;
+    for (var i = 1; i < stops.length; i++) {
+      if (Math.abs(stops[i].x - x) < Math.abs(stops[near].x - x)) near = i;
+    }
+    return near;
+  }
+
+  function followText(index) {
+    var dates = histDates();
+    var n = dates.length;
+    if (index < n) return fmtFollowDate(dates[index]);
+    var step = (dates[n - 1] - dates[0]) / (n - 1);
+    return 'Est. ' + fmtFollowDate(new Date(dates[n - 1].getTime() + step * (index - n + 1)));
   }
 
   function maybeHaptic() {
@@ -1377,27 +1431,23 @@
 
   function applyScrubFromEvent(ev) {
     if (!ev || !geo) return;
-    var values = histValues();
-    if (!values.length) return;
-    var plotRight = plotLayout.padL + plotLayout.plotW;
-    var x = Math.max(plotLayout.padL, Math.min(plotRight, eventCanvasX(ev)));
+    var values = geo.series;
+    var x = Math.max(plotLayout.padL, Math.min(geo.scrubRight, eventCanvasX(ev)));
     var idx = indexFromX(x);
     var changed = scrubIndex !== idx;
     // Appearing from nothing: start at the target rather than sliding in
     var appearing = scrubIndex == null && hoverT < 0.02;
     scrubIndex = idx;
     goalX = x;
-    if (appearing) {
-      curX = x;
-      placeFollow();
-    }
+    if (appearing) curX = x;
     if (changed) {
       maybeHaptic();
       strokeGoal = strokeAt(idx);
       applyPrice(formatPrice(values[idx]), true);
       applyDelta(values, idx);
-      setFollowText(fmtFollowDate(histDates()[idx]));
+      setFollowText(followText(idx));
     }
+    if (appearing) placeFollow();
     kickGlide();
   }
 
